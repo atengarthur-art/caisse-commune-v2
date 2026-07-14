@@ -3,6 +3,30 @@ import { supabase } from "../supabaseClient";
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
+const TYPE_LABEL = { cotisation: "Cotisation", depense: "Dépense (caisse)", avance: "Avance membre", remboursement: "Remboursement" };
+
+function buildJournal(cotisations, depenses, members) {
+  const entries = [];
+  cotisations.forEach((c) => {
+    const m = members.find((x) => x.id === c.member_id);
+    entries.push({ id: "c-" + c.id, date: c.date, type: "cotisation", libelle: "Cotisation — " + (m?.name || "—"), montant: c.montant });
+  });
+  depenses.forEach((d) => {
+    if (!d.source) {
+      entries.push({ id: "d-" + d.id, date: d.date, type: "depense", libelle: d.libelle, montant: -d.montant });
+    } else {
+      const m = members.find((x) => x.id === d.source);
+      entries.push({ id: "a-" + d.id, date: d.date, type: "avance", libelle: "Avance — " + d.libelle + " (" + (m?.name || "—") + ")", montant: 0 });
+      if (d.rembourse) {
+        entries.push({ id: "r-" + d.id, date: d.remboursement_date || d.date, type: "remboursement", libelle: "Remboursement — " + d.libelle + " (" + (m?.name || "—") + ")", montant: -d.montant });
+      }
+    }
+  });
+  entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  let running = 0;
+  return entries.map((e) => { running += e.montant; return { ...e, solde: running }; });
+}
+
 export default function GroupDetail({ groupId, onBack }) {
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -13,6 +37,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const [cotMontant, setCotMontant] = useState("");
   const [depLibelle, setDepLibelle] = useState("");
   const [depMontant, setDepMontant] = useState("");
+  const [depSource, setDepSource] = useState("");
   const [error, setError] = useState("");
 
   const loadAll = async () => {
@@ -51,17 +76,35 @@ export default function GroupDetail({ groupId, onBack }) {
     e.preventDefault();
     const montant = parseFloat(depMontant);
     if (!depLibelle.trim() || !montant || montant <= 0) return;
-    const { error: err } = await supabase.from("depenses").insert({ group_id: groupId, libelle: depLibelle.trim(), montant });
+    const { error: err } = await supabase.from("depenses").insert({
+      group_id: groupId,
+      libelle: depLibelle.trim(),
+      montant,
+      source: depSource || null,
+      rembourse: false,
+    });
     if (err) setError(err.message);
-    setDepLibelle(""); setDepMontant("");
+    setDepLibelle(""); setDepMontant(""); setDepSource("");
+    loadAll();
+  };
+
+  const toggleRembourse = async (d) => {
+    const { error: err } = await supabase.from("depenses").update({
+      rembourse: !d.rembourse,
+      remboursement_date: !d.rembourse ? new Date().toISOString().slice(0, 10) : null,
+    }).eq("id", d.id);
+    if (err) setError(err.message);
     loadAll();
   };
 
   if (!group) return <p className="muted">Chargement du groupe…</p>;
 
   const totalCotise = sum(cotisations.map((c) => c.montant));
-  const totalDepense = sum(depenses.map((d) => d.montant));
-  const solde = totalCotise - totalDepense;
+  const totalDepenseCaisse = sum(depenses.filter((d) => !d.source).map((d) => d.montant));
+  const totalRembourse = sum(depenses.filter((d) => d.source && d.rembourse).map((d) => d.montant));
+  const totalARembourser = sum(depenses.filter((d) => d.source && !d.rembourse).map((d) => d.montant));
+  const soldeCaisse = totalCotise - totalDepenseCaisse - totalRembourse;
+  const journal = buildJournal(cotisations, depenses, members).reverse();
 
   return (
     <div>
@@ -72,8 +115,8 @@ export default function GroupDetail({ groupId, onBack }) {
 
       <div className="card row">
         <div><div className="muted">Total cotisé</div><div className="money pos">{totalCotise.toLocaleString("fr-FR")} €</div></div>
-        <div><div className="muted">Total dépensé</div><div className="money neg">{totalDepense.toLocaleString("fr-FR")} €</div></div>
-        <div><div className="muted">Solde caisse</div><div className="money pos">{solde.toLocaleString("fr-FR")} €</div></div>
+        <div><div className="muted">Solde caisse</div><div className="money pos">{soldeCaisse.toLocaleString("fr-FR")} €</div></div>
+        <div><div className="muted">À rembourser</div><div className="money neg">{totalARembourser.toLocaleString("fr-FR")} €</div></div>
       </div>
 
       <div className="card">
@@ -111,12 +154,54 @@ export default function GroupDetail({ groupId, onBack }) {
           <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder="ex. Location salle" />
           <label>Montant</label>
           <input type="number" min="0" step="any" value={depMontant} onChange={(e) => setDepMontant(e.target.value)} />
+          <label>Payé par</label>
+          <select value={depSource} onChange={(e) => setDepSource(e.target.value)}>
+            <option value="">La caisse</option>
+            {members.map((m) => <option key={m.id} value={m.id}>{m.name} (avance)</option>)}
+          </select>
           <button type="submit">Enregistrer la dépense</button>
         </form>
-        {depenses.map((d) => (
-          <div key={d.id} className="list-item"><span>{d.libelle} · {d.date}</span><span className="money neg">-{d.montant}</span></div>
+        <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>
+          « Avance » = un membre a payé de sa poche. Le montant lui est dû tant qu'il n'est pas marqué remboursé.
+        </p>
+        {depenses.map((d) => {
+          const payeur = members.find((m) => m.id === d.source);
+          return (
+            <div key={d.id} className="list-item">
+              <div>
+                <div>{d.libelle} · {d.date}</div>
+                <div className="muted">{payeur ? `avancé par ${payeur.name}` : "payé par la caisse"}{payeur && (d.rembourse ? " · remboursé" : " · non remboursé")}</div>
+              </div>
+              <div className="row" style={{ gap: 10 }}>
+                <span className="money neg">-{d.montant}</span>
+                {payeur && (
+                  <button className="secondary" onClick={() => toggleRembourse(d)}>
+                    {d.rembourse ? "Annuler" : "Rembourser"}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card">
+        <h2>Journal des opérations</h2>
+        {journal.length === 0 ? <p className="muted">Aucune opération enregistrée.</p> : journal.map((e) => (
+          <div key={e.id} className="list-item">
+            <div>
+              <div>{e.libelle}</div>
+              <div className="muted">{e.date} · {TYPE_LABEL[e.type]}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className={e.montant > 0 ? "money pos" : e.montant < 0 ? "money neg" : "muted"}>
+                {e.montant > 0 ? "+" : ""}{e.montant}
+              </div>
+              <div className="muted" style={{ fontSize: 11 }}>solde: {e.solde}</div>
+            </div>
+          </div>
         ))}
       </div>
     </div>
   );
-      }
+    }
