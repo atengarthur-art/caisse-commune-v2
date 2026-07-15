@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
+const FREE_MAX_MEMBERS = 10;
 const TYPE_LABEL = { cotisation: "Cotisation", depense: "Dépense (caisse)", avance: "Avance membre", remboursement: "Remboursement" };
 
 function buildJournal(cotisations, depenses, members) {
@@ -32,6 +33,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const [members, setMembers] = useState([]);
   const [cotisations, setCotisations] = useState([]);
   const [depenses, setDepenses] = useState([]);
+  const [plan, setPlan] = useState("free");
   const [memberName, setMemberName] = useState("");
   const [cotMemberId, setCotMemberId] = useState("");
   const [cotMontant, setCotMontant] = useState("");
@@ -41,21 +43,26 @@ export default function GroupDetail({ groupId, onBack }) {
   const [error, setError] = useState("");
 
   const loadAll = async () => {
-    const [{ data: g }, { data: m }, { data: c }, { data: d }] = await Promise.all([
+    const { data: userData } = await supabase.auth.getUser();
+    const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: p }] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).single(),
       supabase.from("members").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("cotisations").select("*").eq("group_id", groupId).order("date", { ascending: false }),
       supabase.from("depenses").select("*").eq("group_id", groupId).order("date", { ascending: false }),
+      supabase.from("profiles").select("plan").eq("id", userData.user.id).single(),
     ]);
     setGroup(g); setMembers(m || []); setCotisations(c || []); setDepenses(d || []);
+    if (p) setPlan(p.plan);
     if (!cotMemberId && m && m[0]) setCotMemberId(m[0].id);
   };
 
   useEffect(() => { loadAll(); }, [groupId]);
 
+  const atMemberLimit = plan === "free" && members.length >= FREE_MAX_MEMBERS;
+
   const addMember = async (e) => {
     e.preventDefault();
-    if (!memberName.trim()) return;
+    if (!memberName.trim() || atMemberLimit) return;
     const { error: err } = await supabase.from("members").insert({ group_id: groupId, name: memberName.trim() });
     if (err) setError(err.message);
     setMemberName("");
@@ -120,11 +127,15 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
 
       <div className="card">
-        <h2>Membres</h2>
-        <form onSubmit={addMember} className="row" style={{ alignItems: "flex-end" }}>
-          <div style={{ flex: 1 }}><input placeholder="Nom du membre" value={memberName} onChange={(e) => setMemberName(e.target.value)} /></div>
-          <button type="submit">Ajouter</button>
-        </form>
+        <h2>Membres {plan === "free" && <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({members.length}/{FREE_MAX_MEMBERS})</span>}</h2>
+        {atMemberLimit ? (
+          <p className="error">Limite du plan gratuit atteinte ({FREE_MAX_MEMBERS} membres). Passez Premium depuis le tableau de bord pour en ajouter davantage.</p>
+        ) : (
+          <form onSubmit={addMember} className="row" style={{ alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}><input placeholder="Nom du membre" value={memberName} onChange={(e) => setMemberName(e.target.value)} /></div>
+            <button type="submit">Ajouter</button>
+          </form>
+        )}
         {members.map((m) => <div key={m.id} className="list-item"><span>{m.name}</span></div>)}
       </div>
 
@@ -204,4 +215,4 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
     </div>
   );
-    }
+                    }
