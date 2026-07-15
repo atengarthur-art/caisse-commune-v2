@@ -34,6 +34,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const [cotisations, setCotisations] = useState([]);
   const [depenses, setDepenses] = useState([]);
   const [plan, setPlan] = useState("free");
+  const [isOwner, setIsOwner] = useState(false);
   const [memberName, setMemberName] = useState("");
   const [cotMemberId, setCotMemberId] = useState("");
   const [cotMontant, setCotMontant] = useState("");
@@ -41,6 +42,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const [depMontant, setDepMontant] = useState("");
   const [depSource, setDepSource] = useState("");
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const loadAll = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -53,6 +55,7 @@ export default function GroupDetail({ groupId, onBack }) {
     ]);
     setGroup(g); setMembers(m || []); setCotisations(c || []); setDepenses(d || []);
     if (p) setPlan(p.plan);
+    if (g) setIsOwner(g.owner_id === userData.user.id);
     if (!cotMemberId && m && m[0]) setCotMemberId(m[0].id);
   };
 
@@ -104,6 +107,13 @@ export default function GroupDetail({ groupId, onBack }) {
     loadAll();
   };
 
+  const copyLink = () => {
+    const link = `${window.location.origin}/rejoindre/${group.join_code}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (!group) return <p className="muted">Chargement du groupe…</p>;
 
   const totalCotise = sum(cotisations.map((c) => c.montant));
@@ -126,31 +136,47 @@ export default function GroupDetail({ groupId, onBack }) {
         <div><div className="muted">À rembourser</div><div className="money neg">{totalARembourser.toLocaleString("fr-FR")} €</div></div>
       </div>
 
+      {isOwner && (
+        <div className="card">
+          <h2>Inviter des membres</h2>
+          <p className="muted" style={{ marginBottom: 10 }}>
+            Partagez ce lien : la personne crée son compte et rejoint automatiquement ce groupe, en lecture seule.
+          </p>
+          <button className="secondary" onClick={copyLink}>
+            {copied ? "Lien copié !" : "Copier le lien d'invitation"}
+          </button>
+        </div>
+      )}
+
       <div className="card">
         <h2>Membres {plan === "free" && <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({members.length}/{FREE_MAX_MEMBERS})</span>}</h2>
-        {atMemberLimit ? (
-          <p className="error">Limite du plan gratuit atteinte ({FREE_MAX_MEMBERS} membres). Passez Premium depuis le tableau de bord pour en ajouter davantage.</p>
-        ) : (
-          <form onSubmit={addMember} className="row" style={{ alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}><input placeholder="Nom du membre" value={memberName} onChange={(e) => setMemberName(e.target.value)} /></div>
-            <button type="submit">Ajouter</button>
-          </form>
+        {isOwner && (
+          atMemberLimit ? (
+            <p className="error">Limite du plan gratuit atteinte ({FREE_MAX_MEMBERS} membres). Passez Premium pour en ajouter davantage.</p>
+          ) : (
+            <form onSubmit={addMember} className="row" style={{ alignItems: "flex-end" }}>
+              <div style={{ flex: 1 }}><input placeholder="Nom du membre (sans compte)" value={memberName} onChange={(e) => setMemberName(e.target.value)} /></div>
+              <button type="submit">Ajouter</button>
+            </form>
+          )
         )}
-        {members.map((m) => <div key={m.id} className="list-item"><span>{m.name}</span></div>)}
+        {members.map((m) => <div key={m.id} className="list-item"><span>{m.name}</span>{m.user_id && <span className="muted" style={{ fontSize: 12 }}>compte connecté</span>}</div>)}
       </div>
 
       <div className="card">
         <h2>Cotisations</h2>
-        {members.length === 0 ? <p className="muted">Ajoutez d'abord un membre.</p> : (
-          <form onSubmit={addCotisation}>
-            <label>Membre</label>
-            <select value={cotMemberId} onChange={(e) => setCotMemberId(e.target.value)}>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-            <label>Montant</label>
-            <input type="number" min="0" step="any" value={cotMontant} onChange={(e) => setCotMontant(e.target.value)} />
-            <button type="submit">Enregistrer la cotisation</button>
-          </form>
+        {isOwner && (
+          members.length === 0 ? <p className="muted">Ajoutez d'abord un membre.</p> : (
+            <form onSubmit={addCotisation}>
+              <label>Membre</label>
+              <select value={cotMemberId} onChange={(e) => setCotMemberId(e.target.value)}>
+                {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <label>Montant</label>
+              <input type="number" min="0" step="any" value={cotMontant} onChange={(e) => setCotMontant(e.target.value)} />
+              <button type="submit">Enregistrer la cotisation</button>
+            </form>
+          )
         )}
         {cotisations.map((c) => {
           const m = members.find((x) => x.id === c.member_id);
@@ -160,21 +186,25 @@ export default function GroupDetail({ groupId, onBack }) {
 
       <div className="card">
         <h2>Dépenses</h2>
-        <form onSubmit={addDepense}>
-          <label>Libellé</label>
-          <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder="ex. Location salle" />
-          <label>Montant</label>
-          <input type="number" min="0" step="any" value={depMontant} onChange={(e) => setDepMontant(e.target.value)} />
-          <label>Payé par</label>
-          <select value={depSource} onChange={(e) => setDepSource(e.target.value)}>
-            <option value="">La caisse</option>
-            {members.map((m) => <option key={m.id} value={m.id}>{m.name} (avance)</option>)}
-          </select>
-          <button type="submit">Enregistrer la dépense</button>
-        </form>
-        <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>
-          « Avance » = un membre a payé de sa poche. Le montant lui est dû tant qu'il n'est pas marqué remboursé.
-        </p>
+        {isOwner && (
+          <>
+            <form onSubmit={addDepense}>
+              <label>Libellé</label>
+              <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder="ex. Location salle" />
+              <label>Montant</label>
+              <input type="number" min="0" step="any" value={depMontant} onChange={(e) => setDepMontant(e.target.value)} />
+              <label>Payé par</label>
+              <select value={depSource} onChange={(e) => setDepSource(e.target.value)}>
+                <option value="">La caisse</option>
+                {members.map((m) => <option key={m.id} value={m.id}>{m.name} (avance)</option>)}
+              </select>
+              <button type="submit">Enregistrer la dépense</button>
+            </form>
+            <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>
+              « Avance » = un membre a payé de sa poche. Le montant lui est dû tant qu'il n'est pas marqué remboursé.
+            </p>
+          </>
+        )}
         {depenses.map((d) => {
           const payeur = members.find((m) => m.id === d.source);
           return (
@@ -185,7 +215,7 @@ export default function GroupDetail({ groupId, onBack }) {
               </div>
               <div className="row" style={{ gap: 10 }}>
                 <span className="money neg">-{d.montant}</span>
-                {payeur && (
+                {isOwner && payeur && (
                   <button className="secondary" onClick={() => toggleRembourse(d)}>
                     {d.rembourse ? "Annuler" : "Rembourser"}
                   </button>
@@ -215,4 +245,4 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
     </div>
   );
-                    }
+}
