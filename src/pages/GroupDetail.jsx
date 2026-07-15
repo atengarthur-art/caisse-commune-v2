@@ -35,6 +35,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const [depenses, setDepenses] = useState([]);
   const [plan, setPlan] = useState("free");
   const [isOwner, setIsOwner] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [memberName, setMemberName] = useState("");
   const [cotMemberId, setCotMemberId] = useState("");
   const [cotMontant, setCotMontant] = useState("");
@@ -43,9 +44,11 @@ export default function GroupDetail({ groupId, onBack }) {
   const [depSource, setDepSource] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const loadAll = async () => {
     const { data: userData } = await supabase.auth.getUser();
+    setCurrentUserId(userData.user.id);
     const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: p }] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).single(),
       supabase.from("members").select("*").eq("group_id", groupId).order("created_at"),
@@ -62,6 +65,7 @@ export default function GroupDetail({ groupId, onBack }) {
   useEffect(() => { loadAll(); }, [groupId]);
 
   const atMemberLimit = plan === "free" && members.length >= FREE_MAX_MEMBERS;
+  const myMembership = members.find((m) => m.user_id === currentUserId);
 
   const addMember = async (e) => {
     e.preventDefault();
@@ -114,6 +118,13 @@ export default function GroupDetail({ groupId, onBack }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const leaveGroup = async () => {
+    if (!myMembership) return;
+    const { error: err } = await supabase.from("members").delete().eq("id", myMembership.id);
+    if (err) { setError(err.message); return; }
+    onBack();
+  };
+
   if (!group) return <p className="muted">Chargement du groupe…</p>;
 
   const totalCotise = sum(cotisations.map((c) => c.montant));
@@ -145,6 +156,21 @@ export default function GroupDetail({ groupId, onBack }) {
           <button className="secondary" onClick={copyLink}>
             {copied ? "Lien copié !" : "Copier le lien d'invitation"}
           </button>
+        </div>
+      )}
+
+      {!isOwner && myMembership && !leaving && (
+        <div className="card">
+          <button className="danger" onClick={() => setLeaving(true)}>Quitter ce groupe</button>
+        </div>
+      )}
+      {!isOwner && myMembership && leaving && (
+        <div className="card">
+          <p style={{ marginBottom: 10 }}>Confirmer que vous quittez ce groupe ? Vous pourrez le rejoindre à nouveau avec le lien d'invitation si besoin.</p>
+          <div className="row" style={{ justifyContent: "flex-start", gap: 10 }}>
+            <button className="danger" onClick={leaveGroup}>Confirmer</button>
+            <button className="secondary" onClick={() => setLeaving(false)}>Annuler</button>
+          </div>
         </div>
       )}
 
@@ -245,4 +271,4 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
     </div>
   );
-}
+    }
