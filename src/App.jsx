@@ -3,10 +3,15 @@ import { supabase } from "./supabaseClient";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import GroupDetail from "./pages/GroupDetail.jsx";
+import Join from "./pages/Join.jsx";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
   const [activeGroupId, setActiveGroupId] = useState(null);
+
+  const joinCode = window.location.pathname.startsWith("/rejoindre/")
+    ? window.location.pathname.split("/rejoindre/")[1]
+    : null;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -20,6 +25,18 @@ export default function App() {
 
   if (!session) {
     return <Login />;
+  }
+
+  if (joinCode) {
+    return (
+      <Join
+        code={joinCode}
+        onDone={(groupId) => {
+          window.history.replaceState({}, "", "/");
+          setActiveGroupId(groupId);
+        }}
+      />
+    );
   }
 
   return (
@@ -39,4 +56,4 @@ export default function App() {
       )}
     </div>
   );
-}
+      }
