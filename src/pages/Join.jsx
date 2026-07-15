@@ -4,19 +4,16 @@ import { supabase } from "../supabaseClient";
 export default function Join({ code, onDone }) {
   const [status, setStatus] = useState("loading");
   const [groupName, setGroupName] = useState("");
+  const [groupId, setGroupId] = useState(null);
   const [nameInput, setNameInput] = useState("");
 
   useEffect(() => {
     const run = async () => {
-      const { data: groups, error: gErr } = await supabase
-        .from("groups")
-        .select("id, name, type")
-        .eq("join_code", code)
-        .limit(1);
-      if (gErr || !groups || groups.length === 0) { setStatus("notfound"); return; }
-      setGroupName(groups[0].name);
+      const { data, error: err } = await supabase.rpc("get_group_by_code", { code });
+      if (err || !data || data.length === 0) { setStatus("notfound"); return; }
+      setGroupName(data[0].name);
+      setGroupId(data[0].id);
       setStatus("ready");
-      window._joinGroupId = groups[0].id;
     };
     run();
   }, [code]);
@@ -26,12 +23,12 @@ export default function Join({ code, onDone }) {
     if (!nameInput.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
     const { error: err } = await supabase.from("members").insert({
-      group_id: window._joinGroupId,
+      group_id: groupId,
       name: nameInput.trim(),
       user_id: userData.user.id,
     });
     if (err) { setStatus("error"); return; }
-    onDone(window._joinGroupId);
+    onDone(groupId);
   };
 
   if (status === "loading") return <div className="app-shell"><p className="muted">Vérification du lien…</p></div>;
@@ -49,4 +46,4 @@ export default function Join({ code, onDone }) {
       </form>
     </div>
   );
-}
+          }
