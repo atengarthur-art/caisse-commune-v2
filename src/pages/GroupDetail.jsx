@@ -60,6 +60,12 @@ export default function GroupDetail({ groupId, onBack }) {
     if (p) setPlan(p.plan);
     if (g) setIsOwner(g.owner_id === userData.user.id);
     if (!cotMemberId && m && m[0]) setCotMemberId(m[0].id);
+
+    await supabase.from("group_visits").upsert({
+      group_id: groupId,
+      user_id: userData.user.id,
+      last_seen: new Date().toISOString(),
+    });
   };
 
   useEffect(() => { loadAll(); }, [groupId]);
@@ -73,6 +79,12 @@ export default function GroupDetail({ groupId, onBack }) {
     const { error: err } = await supabase.from("members").insert({ group_id: groupId, name: memberName.trim() });
     if (err) setError(err.message);
     setMemberName("");
+    loadAll();
+  };
+
+  const removeMember = async (id) => {
+    const { error: err } = await supabase.from("members").delete().eq("id", id);
+    if (err) setError(err.message);
     loadAll();
   };
 
@@ -186,7 +198,15 @@ export default function GroupDetail({ groupId, onBack }) {
             </form>
           )
         )}
-        {members.map((m) => <div key={m.id} className="list-item"><span>{m.name}</span>{m.user_id && <span className="muted" style={{ fontSize: 12 }}>compte connecté</span>}</div>)}
+        {members.map((m) => (
+          <div key={m.id} className="list-item">
+            <span>{m.name}</span>
+            <div className="row" style={{ gap: 10, width: "auto" }}>
+              {m.user_id && <span className="muted" style={{ fontSize: 12 }}>compte connecté</span>}
+              {isOwner && <button className="danger" onClick={() => removeMember(m.id)}>Retirer</button>}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="card">
@@ -271,4 +291,4 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
     </div>
   );
-    }
+                                                                                                  }
