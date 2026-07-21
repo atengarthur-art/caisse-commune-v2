@@ -49,15 +49,15 @@ export default function GroupDetail({ groupId, onBack }) {
   const loadAll = async () => {
     const { data: userData } = await supabase.auth.getUser();
     setCurrentUserId(userData.user.id);
-    const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: p }] = await Promise.all([
+    const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: ownerPlan }] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).single(),
       supabase.from("members").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("cotisations").select("*").eq("group_id", groupId).order("date", { ascending: false }),
       supabase.from("depenses").select("*").eq("group_id", groupId).order("date", { ascending: false }),
-      supabase.from("profiles").select("plan").eq("id", userData.user.id).single(),
+      supabase.rpc("get_owner_plan", { gid: groupId }),
     ]);
     setGroup(g); setMembers(m || []); setCotisations(c || []); setDepenses(d || []);
-    if (p) setPlan(p.plan);
+    if (ownerPlan) setPlan(ownerPlan);
     if (g) setIsOwner(g.owner_id === userData.user.id);
     if (!cotMemberId && m && m[0]) setCotMemberId(m[0].id);
 
@@ -291,4 +291,4 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
     </div>
   );
-                                                                                                  }
+      }
