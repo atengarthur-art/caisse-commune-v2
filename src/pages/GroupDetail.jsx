@@ -33,6 +33,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const [members, setMembers] = useState([]);
   const [cotisations, setCotisations] = useState([]);
   const [depenses, setDepenses] = useState([]);
+  const [proposals, setProposals] = useState([]);
   const [plan, setPlan] = useState("free");
   const [isOwner, setIsOwner] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -42,6 +43,9 @@ export default function GroupDetail({ groupId, onBack }) {
   const [depLibelle, setDepLibelle] = useState("");
   const [depMontant, setDepMontant] = useState("");
   const [depSource, setDepSource] = useState("");
+  const [propType, setPropType] = useState("cotisation");
+  const [propLibelle, setPropLibelle] = useState("");
+  const [propMontant, setPropMontant] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -54,18 +58,20 @@ export default function GroupDetail({ groupId, onBack }) {
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user.id;
     setCurrentUserId(uid);
-    const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: ownerPlan }, { data: reqs }] = await Promise.all([
+    const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: ownerPlan }, { data: reqs }, { data: props }] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).single(),
       supabase.from("members").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("cotisations").select("*").eq("group_id", groupId).order("date", { ascending: false }),
       supabase.from("depenses").select("*").eq("group_id", groupId).order("date", { ascending: false }),
       supabase.rpc("get_owner_plan", { gid: groupId }),
       supabase.from("group_action_requests").select("*").eq("group_id", groupId).eq("status", "pending").limit(1),
+      supabase.from("operation_proposals").select("*").eq("group_id", groupId).order("created_at", { ascending: false }),
     ]);
 
     if (!g) { onBack(); return; }
 
     setGroup(g); setMembers(m || []); setCotisations(c || []); setDepenses(d || []);
+    setProposals(props || []);
     if (ownerPlan) setPlan(ownerPlan);
     setIsOwner(g.owner_id === uid);
     if (!cotMemberId && m && m[0]) setCotMemberId(m[0].id);
@@ -80,7 +86,10 @@ export default function GroupDetail({ groupId, onBack }) {
       setVotesCount(0); setHasVoted(false);
     }
 
-    await supabase.from("group_visits").upsert({ group_id: groupId, user_id: uid, last_seen: new Date().toISOString() });
+    await supabase.from("group_visits").upsert(
+      { group_id: groupId, user_id: uid, last_seen: new Date().toISOString() },
+      { onConflict: "group_id,user_id" }
+    );
   };
 
   useEffect(() => { loadAll(); }, [groupId]);
@@ -88,6 +97,7 @@ export default function GroupDetail({ groupId, onBack }) {
   const atMemberLimit = plan === "free" && members.length >= FREE_MAX_MEMBERS;
   const myMembership = members.find((m) => m.user_id === currentUserId);
   const connectedOthers = members.filter((m) => m.user_id && m.user_id !== group?.owner_id);
+  const pendingProposals = proposals.filter((p) => p.status === "pending");
 
   const addMember = async (e) => {
     e.preventDefault();
@@ -178,6 +188,36 @@ export default function GroupDetail({ groupId, onBack }) {
     loadAll();
   };
 
+  const submitProposal = async (e) => {
+    e.preventDefault();
+    const montant = parseFloat(propMontant);
+    if (!myMembership || !montant || montant <= 0) return;
+    if (propType === "depense" && !propLibelle.trim()) return;
+    const { error: err } = await supabase.from("operation_proposals").insert({
+      group_id: groupId,
+      member_id: myMembership.id,
+      proposer_user_id: currentUserId,
+      type: propType,
+      libelle: propType === "depense" ? propLibelle.trim() : "Cotisation",
+      montant,
+    });
+    if (err) { setError(err.message); return; }
+    setPropLibelle(""); setPropMontant("");
+    loadAll();
+  };
+
+  const approveProposal = async (id) => {
+    const { error: err } = await supabase.rpc("approve_proposal", { pid: id });
+    if (err) setError(err.message);
+    loadAll();
+  };
+
+  const rejectProposal = async (id) => {
+    const { error: err } = await supabase.rpc("reject_proposal", { pid: id });
+    if (err) setError(err.message);
+    loadAll();
+  };
+
   if (!group) return <p className="muted">Chargement du groupe…</p>;
 
   const totalCotise = sum(cotisations.map((c) => c.montant));
@@ -199,9 +239,7 @@ export default function GroupDetail({ groupId, onBack }) {
       {pendingRequest && (
         <div className="card" style={{ borderColor: "#B8894B" }}>
           <h2>{pendingRequest.action_type === "delete" ? "Demande de suppression en cours" : "Demande de transfert en cours"}</h2>
-          <p className="muted" style={{ marginBottom: 10 }}>
-            Votes reçus : {votesCount}/{eligibleCount}. Tous les membres connectés doivent approuver.
-          </p>
+          <p className="muted" style={{ marginBottom: 10 }}>Votes reçus : {votesCount}/{eligibleCount}. Tous les membres connectés doivent approuver.</p>
           {iCanVote && !hasVoted && <button onClick={castVote}>Approuver</button>}
           {hasVoted && <p className="muted">Vous avez déjà approuvé cette demande.</p>}
           {isOwner && <button className="secondary" style={{ marginLeft: 8 }} onClick={cancelRequest}>Annuler la demande</button>}
@@ -217,9 +255,7 @@ export default function GroupDetail({ groupId, onBack }) {
       {isOwner && (
         <div className="card">
           <h2>Inviter des membres</h2>
-          <p className="muted" style={{ marginBottom: 10 }}>
-            Partagez ce lien : la personne crée son compte et rejoint automatiquement ce groupe, en lecture seule.
-          </p>
+          <p className="muted" style={{ marginBottom: 10 }}>Partagez ce lien : la personne crée son compte et rejoint automatiquement ce groupe, en lecture seule.</p>
           <button className="secondary" onClick={copyLink}>{copied ? "Lien copié !" : "Copier le lien d'invitation"}</button>
         </div>
       )}
@@ -227,9 +263,7 @@ export default function GroupDetail({ groupId, onBack }) {
       {isOwner && !pendingRequest && (
         <div className="card">
           <h2>Gestion du groupe</h2>
-          <button className="danger" onClick={requestDeletion} style={{ marginBottom: 14 }}>
-            Demander la suppression du groupe
-          </button>
+          <button className="danger" onClick={requestDeletion} style={{ marginBottom: 14 }}>Demander la suppression du groupe</button>
           {connectedOthers.length > 0 && (
             <>
               <label>Transférer la propriété à</label>
@@ -240,16 +274,12 @@ export default function GroupDetail({ groupId, onBack }) {
               <button className="secondary" onClick={requestTransfer} disabled={!transferTarget}>Demander le transfert</button>
             </>
           )}
-          <p className="muted" style={{ marginTop: 10 }}>
-            Ces deux actions nécessitent l'accord unanime des membres connectés (s'il y en a).
-          </p>
+          <p className="muted" style={{ marginTop: 10 }}>Ces deux actions nécessitent l'accord unanime des membres connectés.</p>
         </div>
       )}
 
       {!isOwner && myMembership && !leaving && (
-        <div className="card">
-          <button className="danger" onClick={() => setLeaving(true)}>Quitter ce groupe</button>
-        </div>
+        <div className="card"><button className="danger" onClick={() => setLeaving(true)}>Quitter ce groupe</button></div>
       )}
       {!isOwner && myMembership && leaving && (
         <div className="card">
@@ -258,6 +288,50 @@ export default function GroupDetail({ groupId, onBack }) {
             <button className="danger" onClick={leaveGroup}>Confirmer</button>
             <button className="secondary" onClick={() => setLeaving(false)}>Annuler</button>
           </div>
+        </div>
+      )}
+
+      {!isOwner && myMembership && (
+        <div className="card">
+          <h2>Proposer une opération</h2>
+          <form onSubmit={submitProposal}>
+            <label>Type</label>
+            <select value={propType} onChange={(e) => setPropType(e.target.value)}>
+              <option value="cotisation">Cotisation (que j'ai versée)</option>
+              <option value="depense">Avance (dépense payée de ma poche)</option>
+            </select>
+            {propType === "depense" && (
+              <>
+                <label>Libellé</label>
+                <input value={propLibelle} onChange={(e) => setPropLibelle(e.target.value)} placeholder="ex. Location salle" />
+              </>
+            )}
+            <label>Montant</label>
+            <input type="number" min="0" step="any" value={propMontant} onChange={(e) => setPropMontant(e.target.value)} />
+            <button type="submit">Envoyer au trésorier</button>
+          </form>
+        </div>
+      )}
+
+      {pendingProposals.length > 0 && (
+        <div className="card">
+          <h2>Propositions en attente</h2>
+          {pendingProposals.map((p) => {
+            const m = members.find((x) => x.id === p.member_id);
+            return (
+              <div key={p.id} className="list-item">
+                <div>
+                  <div>{p.type === "cotisation" ? "Cotisation" : "Avance — " + p.libelle} · {m?.name || "—"}</div>
+                  <div className="muted">{new Date(p.created_at).toLocaleDateString("fr-FR")}</div>
+                </div>
+                <div className="row" style={{ gap: 10, width: "auto" }}>
+                  <span className="money pos">{p.montant}</span>
+                  {isOwner && <button onClick={() => approveProposal(p.id)}>Valider</button>}
+                  {isOwner && <button className="danger" onClick={() => rejectProposal(p.id)}>Rejeter</button>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -321,9 +395,7 @@ export default function GroupDetail({ groupId, onBack }) {
               </select>
               <button type="submit">Enregistrer la dépense</button>
             </form>
-            <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>
-              « Avance » = un membre a payé de sa poche. Le montant lui est dû tant qu'il n'est pas marqué remboursé.
-            </p>
+            <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>« Avance » = un membre a payé de sa poche. Le montant lui est dû tant qu'il n'est pas marqué remboursé.</p>
           </>
         )}
         {depenses.map((d) => {
@@ -354,14 +426,4 @@ export default function GroupDetail({ groupId, onBack }) {
               <div className="muted">{e.date} · {TYPE_LABEL[e.type]}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div className={e.montant > 0 ? "money pos" : e.montant < 0 ? "money neg" : "muted"}>
-                {e.montant > 0 ? "+" : ""}{e.montant}
-              </div>
-              <div className="muted" style={{ fontSize: 11 }}>solde: {e.solde}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-                    }
+              <div class
