@@ -111,7 +111,6 @@ export default function Dashboard({ userId, onOpenGroup }) {
                 <strong>{g.name}</strong> {isNew(g) && <span style={{ background: "#B8894B", color: "#241B0B", fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, marginLeft: 6 }}>Nouveau</span>}
                 <div className="muted">{g.type}{g.owner_id !== userId && " · membre"}</div>
               </div>
-              {g.owner_id === userId && <button className="danger" onClick={() => deleteGroup(g.id)}>Supprimer</button>}
             </div>
           ))
         )}
