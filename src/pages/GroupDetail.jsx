@@ -425,5 +425,9 @@ export default function GroupDetail({ groupId, onBack }) {
               <div>{e.libelle}</div>
               <div className="muted">{e.date} · {TYPE_LABEL[e.type]}</div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div class
+            </div>
+        ))}
+      </div>
+    </div>
+  );
+}
