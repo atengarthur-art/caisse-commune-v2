@@ -5,21 +5,22 @@ function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
 const FREE_MAX_MEMBERS = 10;
 const TYPE_LABEL = { cotisation: "Cotisation", depense: "Dépense (caisse)", avance: "Avance membre", remboursement: "Remboursement" };
+const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
 
-function buildJournal(cotisations, depenses, members) {
+function buildJournal(cotisations, depenses, members, convert) {
   const entries = [];
   cotisations.forEach((c) => {
     const m = members.find((x) => x.id === c.member_id);
-    entries.push({ id: "c-" + c.id, date: c.date, type: "cotisation", libelle: "Cotisation — " + (m?.name || "—"), montant: c.montant });
+    entries.push({ id: "c-" + c.id, date: c.date, type: "cotisation", libelle: "Cotisation — " + (m?.name || "—"), montant: convert(c.montant, c.devise) });
   });
   depenses.forEach((d) => {
     if (!d.source) {
-      entries.push({ id: "d-" + d.id, date: d.date, type: "depense", libelle: d.libelle, montant: -d.montant });
+      entries.push({ id: "d-" + d.id, date: d.date, type: "depense", libelle: d.libelle, montant: -convert(d.montant, d.devise) });
     } else {
       const m = members.find((x) => x.id === d.source);
       entries.push({ id: "a-" + d.id, date: d.date, type: "avance", libelle: "Avance — " + d.libelle + " (" + (m?.name || "—") + ")", montant: 0 });
       if (d.rembourse) {
-        entries.push({ id: "r-" + d.id, date: d.remboursement_date || d.date, type: "remboursement", libelle: "Remboursement — " + d.libelle + " (" + (m?.name || "—") + ")", montant: -d.montant });
+        entries.push({ id: "r-" + d.id, date: d.remboursement_date || d.date, type: "remboursement", libelle: "Remboursement — " + d.libelle + " (" + (m?.name || "—") + ")", montant: -convert(d.montant, d.devise) });
       }
     }
   });
@@ -40,12 +41,15 @@ export default function GroupDetail({ groupId, onBack }) {
   const [memberName, setMemberName] = useState("");
   const [cotMemberId, setCotMemberId] = useState("");
   const [cotMontant, setCotMontant] = useState("");
+  const [cotDevise, setCotDevise] = useState("EUR");
   const [depLibelle, setDepLibelle] = useState("");
   const [depMontant, setDepMontant] = useState("");
+  const [depDevise, setDepDevise] = useState("EUR");
   const [depSource, setDepSource] = useState("");
   const [propType, setPropType] = useState("cotisation");
   const [propLibelle, setPropLibelle] = useState("");
   const [propMontant, setPropMontant] = useState("");
+  const [propDevise, setPropDevise] = useState("EUR");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -53,6 +57,8 @@ export default function GroupDetail({ groupId, onBack }) {
   const [votesCount, setVotesCount] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
+  const [displayDevise, setDisplayDevise] = useState(null);
+  const [rates, setRates] = useState({});
 
   const loadAll = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -75,6 +81,8 @@ export default function GroupDetail({ groupId, onBack }) {
     if (ownerPlan) setPlan(ownerPlan);
     setIsOwner(g.owner_id === uid);
     if (!cotMemberId && m && m[0]) setCotMemberId(m[0].id);
+    if (!displayDevise) setDisplayDevise(g.devise);
+    setCotDevise(g.devise); setDepDevise(g.devise); setPropDevise(g.devise);
 
     const req = reqs && reqs[0] ? reqs[0] : null;
     setPendingRequest(req);
@@ -93,6 +101,21 @@ export default function GroupDetail({ groupId, onBack }) {
   };
 
   useEffect(() => { loadAll(); }, [groupId]);
+
+  useEffect(() => {
+    if (!displayDevise) return;
+    fetch(`https://open.er-api.com/v6/latest/${displayDevise}`)
+      .then((r) => r.json())
+      .then((data) => { if (data && data.rates) setRates(data.rates); })
+      .catch(() => setRates({}));
+  }, [displayDevise]);
+
+  const convert = (amount, devise) => {
+    if (!devise || devise === displayDevise) return amount;
+    const r = rates[devise];
+    if (!r) return amount;
+    return amount / r;
+  };
 
   const atMemberLimit = plan === "free" && members.length >= FREE_MAX_MEMBERS;
   const myMembership = members.find((m) => m.user_id === currentUserId);
@@ -118,7 +141,7 @@ export default function GroupDetail({ groupId, onBack }) {
     e.preventDefault();
     const montant = parseFloat(cotMontant);
     if (!cotMemberId || !montant || montant <= 0) return;
-    const { error: err } = await supabase.from("cotisations").insert({ group_id: groupId, member_id: cotMemberId, montant });
+    const { error: err } = await supabase.from("cotisations").insert({ group_id: groupId, member_id: cotMemberId, montant, devise: cotDevise });
     if (err) setError(err.message);
     setCotMontant("");
     loadAll();
@@ -129,7 +152,7 @@ export default function GroupDetail({ groupId, onBack }) {
     const montant = parseFloat(depMontant);
     if (!depLibelle.trim() || !montant || montant <= 0) return;
     const { error: err } = await supabase.from("depenses").insert({
-      group_id: groupId, libelle: depLibelle.trim(), montant, source: depSource || null, rembourse: false,
+      group_id: groupId, libelle: depLibelle.trim(), montant, devise: depDevise, source: depSource || null, rembourse: false,
     });
     if (err) setError(err.message);
     setDepLibelle(""); setDepMontant(""); setDepSource("");
@@ -144,7 +167,6 @@ export default function GroupDetail({ groupId, onBack }) {
     if (err) setError(err.message);
     loadAll();
   };
-
   const copyLink = () => {
     const link = `${window.location.origin}/rejoindre/${group.join_code}`;
     navigator.clipboard.writeText(link);
@@ -218,23 +240,31 @@ export default function GroupDetail({ groupId, onBack }) {
     loadAll();
   };
 
-  if (!group) return <p className="muted">Chargement du groupe…</p>;
+  if (!group || !displayDevise) return <p className="muted">Chargement du groupe…</p>;
 
-  const totalCotise = sum(cotisations.map((c) => c.montant));
-  const totalDepenseCaisse = sum(depenses.filter((d) => !d.source).map((d) => d.montant));
-  const totalRembourse = sum(depenses.filter((d) => d.source && d.rembourse).map((d) => d.montant));
-  const totalARembourser = sum(depenses.filter((d) => d.source && !d.rembourse).map((d) => d.montant));
+  const totalCotise = sum(cotisations.map((c) => convert(c.montant, c.devise)));
+  const totalDepenseCaisse = sum(depenses.filter((d) => !d.source).map((d) => convert(d.montant, d.devise)));
+  const totalRembourse = sum(depenses.filter((d) => d.source && d.rembourse).map((d) => convert(d.montant, d.devise)));
+  const totalARembourser = sum(depenses.filter((d) => d.source && !d.rembourse).map((d) => convert(d.montant, d.devise)));
   const soldeCaisse = totalCotise - totalDepenseCaisse - totalRembourse;
-  const journal = buildJournal(cotisations, depenses, members).reverse();
+  const journal = buildJournal(cotisations, depenses, members, convert).reverse();
+
   const eligibleCount = pendingRequest ? (pendingRequest.eligible_voters || []).length : 0;
   const iCanVote = pendingRequest && (pendingRequest.eligible_voters || []).includes(currentUserId);
-
   return (
     <div>
       <a className="link" onClick={onBack}>&larr; Retour aux groupes</a>
       <h1 style={{ marginTop: 10 }}>{group.name}</h1>
-      <p className="muted" style={{ marginBottom: 16 }}>{group.type}</p>
+      <p className="muted" style={{ marginBottom: 16 }}>{group.type} · devise de référence : {group.devise}</p>
       {error && <p className="error">{error}</p>}
+
+      <div className="card">
+        <label>Afficher les montants en</label>
+        <select value={displayDevise} onChange={(e) => setDisplayDevise(e.target.value)}>
+          {DEVISES.map((d) => <option key={d}>{d}</option>)}
+        </select>
+        <p className="muted" style={{ marginTop: 6 }}>Ce choix vous est propre, il n'affecte pas ce que voient les autres.</p>
+      </div>
 
       {pendingRequest && (
         <div className="card" style={{ borderColor: "#B8894B" }}>
@@ -247,9 +277,9 @@ export default function GroupDetail({ groupId, onBack }) {
       )}
 
       <div className="card row">
-        <div><div className="muted">Total cotisé</div><div className="money pos">{totalCotise.toLocaleString("fr-FR")} €</div></div>
-        <div><div className="muted">Solde caisse</div><div className="money pos">{soldeCaisse.toLocaleString("fr-FR")} €</div></div>
-        <div><div className="muted">À rembourser</div><div className="money neg">{totalARembourser.toLocaleString("fr-FR")} €</div></div>
+        <div><div className="muted">Total cotisé</div><div className="money pos">{totalCotise.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
+        <div><div className="muted">Solde caisse</div><div className="money pos">{soldeCaisse.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
+        <div><div className="muted">À rembourser</div><div className="money neg">{totalARembourser.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
       </div>
 
       {isOwner && (
@@ -369,13 +399,23 @@ export default function GroupDetail({ groupId, onBack }) {
               </select>
               <label>Montant</label>
               <input type="number" min="0" step="any" value={cotMontant} onChange={(e) => setCotMontant(e.target.value)} />
+              <label>Devise</label>
+              <select value={cotDevise} onChange={(e) => setCotDevise(e.target.value)}>
+                {DEVISES.map((d) => <option key={d}>{d}</option>)}
+              </select>
               <button type="submit">Enregistrer la cotisation</button>
             </form>
           )
         )}
         {cotisations.map((c) => {
           const m = members.find((x) => x.id === c.member_id);
-          return <div key={c.id} className="list-item"><span>{m?.name || "—"} · {c.date}</span><span className="money pos">+{c.montant}</span></div>;
+          const conv = convert(c.montant, c.devise);
+          return (
+            <div key={c.id} className="list-item">
+              <span>{m?.name || "—"} · {c.date}</span>
+              <span className="money pos">+{c.montant} {c.devise}{c.devise !== displayDevise && <span className="muted" style={{ fontSize: 11 }}> (≈{conv.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise})</span>}</span>
+            </div>
+          );
         })}
       </div>
 
@@ -388,6 +428,10 @@ export default function GroupDetail({ groupId, onBack }) {
               <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder="ex. Location salle" />
               <label>Montant</label>
               <input type="number" min="0" step="any" value={depMontant} onChange={(e) => setDepMontant(e.target.value)} />
+              <label>Devise</label>
+              <select value={depDevise} onChange={(e) => setDepDevise(e.target.value)}>
+                {DEVISES.map((d) => <option key={d}>{d}</option>)}
+              </select>
               <label>Payé par</label>
               <select value={depSource} onChange={(e) => setDepSource(e.target.value)}>
                 <option value="">La caisse</option>
@@ -400,6 +444,7 @@ export default function GroupDetail({ groupId, onBack }) {
         )}
         {depenses.map((d) => {
           const payeur = members.find((m) => m.id === d.source);
+          const conv = convert(d.montant, d.devise);
           return (
             <div key={d.id} className="list-item">
               <div>
@@ -407,7 +452,7 @@ export default function GroupDetail({ groupId, onBack }) {
                 <div className="muted">{payeur ? `avancé par ${payeur.name}` : "payé par la caisse"}{payeur && (d.rembourse ? " · remboursé" : " · non remboursé")}</div>
               </div>
               <div className="row" style={{ gap: 10 }}>
-                <span className="money neg">-{d.montant}</span>
+                <span className="money neg">-{d.montant} {d.devise}{d.devise !== displayDevise && <span className="muted" style={{ fontSize: 11 }}> (≈{conv.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise})</span>}</span>
                 {isOwner && payeur && (
                   <button className="secondary" onClick={() => toggleRembourse(d)}>{d.rembourse ? "Annuler" : "Rembourser"}</button>
                 )}
@@ -418,16 +463,20 @@ export default function GroupDetail({ groupId, onBack }) {
       </div>
 
       <div className="card">
-        <h2>Journal des opérations</h2>
+        <h2>Journal des opérations <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>(en {displayDevise})</span></h2>
         {journal.length === 0 ? <p className="muted">Aucune opération enregistrée.</p> : journal.map((e) => (
           <div key={e.id} className="list-item">
             <div>
               <div>{e.libelle}</div>
               <div className="muted">{e.date} · {TYPE_LABEL[e.type]}</div>
             </div>
+            <div style={{ textAlign: "right" }}>
+              <div className={e.montant > 0 ? "money pos" : e.montant < 0 ? "money neg" : "muted"}>{e.montant > 0 ? "+" : ""}{e.montant.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div>
+              <div className="muted" style={{ fontSize: 11 }}>solde: {e.solde.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</div>
             </div>
+          </div>
         ))}
       </div>
     </div>
   );
-}
+          }
