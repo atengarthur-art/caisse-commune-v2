@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 const FREE_MAX_GROUPS = 3;
+const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
 
 export default function Dashboard({ userId, onOpenGroup }) {
   const [groups, setGroups] = useState([]);
@@ -10,6 +11,7 @@ export default function Dashboard({ userId, onOpenGroup }) {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [type, setType] = useState("Association");
+  const [devise, setDevise] = useState("EUR");
   const [error, setError] = useState("");
 
   const loadAll = async () => {
@@ -44,18 +46,13 @@ export default function Dashboard({ userId, onOpenGroup }) {
     const { data: userData } = await supabase.auth.getUser();
     const { data: newGroup, error: err } = await supabase
       .from("groups")
-      .insert({ name: name.trim(), type, owner_id: userId })
+      .insert({ name: name.trim(), type, owner_id: userId, devise })
       .select()
       .single();
     if (err) { setError(err.message); return; }
     const displayName = userData.user.email?.split("@")[0] || "Moi";
     await supabase.from("members").insert({ group_id: newGroup.id, name: displayName, user_id: userId });
     setName("");
-    loadAll();
-  };
-
-  const deleteGroup = async (id) => {
-    await supabase.from("groups").delete().eq("id", id);
     loadAll();
   };
 
@@ -92,6 +89,10 @@ export default function Dashboard({ userId, onOpenGroup }) {
                 <option key={t}>{t}</option>
               ))}
             </select>
+            <label>Devise de référence</label>
+            <select value={devise} onChange={(e) => setDevise(e.target.value)}>
+              {DEVISES.map((d) => <option key={d}>{d}</option>)}
+            </select>
             {error && <p className="error">{error}</p>}
             <button type="submit">Créer le groupe</button>
           </form>
@@ -109,7 +110,7 @@ export default function Dashboard({ userId, onOpenGroup }) {
             <div key={g.id} className="list-item">
               <div style={{ cursor: "pointer" }} onClick={() => onOpenGroup(g.id)}>
                 <strong>{g.name}</strong> {isNew(g) && <span style={{ background: "#B8894B", color: "#241B0B", fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, marginLeft: 6 }}>Nouveau</span>}
-                <div className="muted">{g.type}{g.owner_id !== userId && " · membre"}</div>
+                <div className="muted">{g.type} · {g.devise}{g.owner_id !== userId && " · membre"}</div>
               </div>
             </div>
           ))
@@ -117,4 +118,4 @@ export default function Dashboard({ userId, onOpenGroup }) {
       </div>
     </div>
   );
-    }
+                                                }
