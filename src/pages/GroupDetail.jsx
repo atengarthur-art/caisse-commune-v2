@@ -65,7 +65,7 @@ export default function GroupDetail({ groupId, onBack }) {
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user.id;
     setCurrentUserId(uid);
-    const [{ data: g }, { data: m }, { data: c }, { data: d }, { data: ownerPlan }, { data: reqs }, { data: props }] = await Promise.all([
+const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).single(),
       supabase.from("members").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("cotisations").select("*").eq("group_id", groupId).order("date", { ascending: false }),
@@ -74,6 +74,13 @@ export default function GroupDetail({ groupId, onBack }) {
       supabase.from("group_action_requests").select("*").eq("group_id", groupId).eq("status", "pending").limit(1),
       supabase.from("operation_proposals").select("*").eq("group_id", groupId).order("created_at", { ascending: false }),
     ]);
+
+    const g = gRes.data, m = mRes.data, c = cRes.data, d = dRes.data, ownerPlan = planRes.data, reqs = reqRes.data, props = propRes.data;
+
+    if (mRes.error) setError("Erreur membres: " + mRes.error.message);
+    else if (cRes.error) setError("Erreur cotisations: " + cRes.error.message);
+    else if (dRes.error) setError("Erreur dépenses: " + dRes.error.message);
+    else if (gRes.error) setError("Erreur groupe: " + gRes.error.message);
 
     if (!g) { onBack(); return; }
 
