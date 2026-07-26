@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+userId React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 const FREE_MAX_GROUPS = 3;
@@ -51,7 +51,8 @@ export default function Dashboard({ userId, onOpenGroup }) {
       .single();
     if (err) { setError(err.message); return; }
     const displayName = userData.user.email?.split("@")[0] || "Moi";
-    await supabase.from("members").insert({ group_id: newGroup.id, name: displayName, user_id: userId });
+    const { error: memErr } = await supabase.from("members").insert({ group_id: newGroup.id, name: displayName, user_id: userId });
+    if (memErr) setError("Erreur membre : " + memErr.message);
     setName("");
     loadAll();
   };
