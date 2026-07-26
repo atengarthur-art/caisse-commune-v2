@@ -1,4 +1,4 @@
-userId React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 const FREE_MAX_GROUPS = 3;
@@ -78,6 +78,7 @@ export default function Dashboard({ userId, onOpenGroup }) {
 
       <div className="card">
         <h2>Nouveau groupe</h2>
+        {error && <p className="error">{error}</p>}
         {atLimit ? (
           <p className="error">Limite du plan gratuit atteinte ({FREE_MAX_GROUPS} groupes). Passez Premium pour en créer davantage.</p>
         ) : (
@@ -94,7 +95,6 @@ export default function Dashboard({ userId, onOpenGroup }) {
             <select value={devise} onChange={(e) => setDevise(e.target.value)}>
               {DEVISES.map((d) => <option key={d}>{d}</option>)}
             </select>
-            {error && <p className="error">{error}</p>}
             <button type="submit">Créer le groupe</button>
           </form>
         )}
@@ -119,4 +119,4 @@ export default function Dashboard({ userId, onOpenGroup }) {
       </div>
     </div>
   );
-                                                }
+    }
