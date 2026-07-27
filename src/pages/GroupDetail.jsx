@@ -4,7 +4,7 @@ import { t } from "../i18n";
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
-const TYPE_LABEL = { cotisation: "Cotisation", depense: "Dépense (caisse)", avance: "Avance membre", remboursement: "Remboursement" };
+const TYPE_LABEL = { fr: { cotisation: "Cotisation", depense: "Dépense (caisse)", avance: "Avance membre", remboursement: "Remboursement" }, en: { cotisation: "Contribution", depense: "Expense (fund)", avance: "Member advance", remboursement: "Reimbursement" } };
 const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
 const FREE_MAX_MEMBERS = 10;
 
@@ -516,7 +516,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
           <div key={e.id} className="list-item">
             <div>
               <div>{e.libelle}</div>
-              <div className="muted">{e.date} · {TYPE_LABEL[e.type]}</div>
+              <div className="muted">{e.date} · {TYPE_LABEL[langue][e.type]}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div className={e.montant > 0 ? "money pos" : e.montant < 0 ? "money neg" : "muted"}>{e.montant > 0 ? "+" : ""}{e.montant.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div>
