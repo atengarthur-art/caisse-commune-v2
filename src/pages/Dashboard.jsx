@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { t } from "../i18n";
 
 const FREE_MAX_GROUPS = 3;
 const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
 
-export default function Dashboard({ userId, onOpenGroup }) {
+export default function Dashboard({ userId, onOpenGroup, langue }) {
   const [groups, setGroups] = useState([]);
   const [visits, setVisits] = useState({});
   const [plan, setPlan] = useState("free");
@@ -67,51 +68,51 @@ export default function Dashboard({ userId, onOpenGroup }) {
     <div>
       <div className="card row">
         <div>
-          <div className="muted">Votre plan</div>
-          <strong>{plan === "premium" ? "Premium" : "Gratuit"}</strong>
-          {plan === "free" && <span className="muted"> ({ownedGroups.length}/{FREE_MAX_GROUPS} groupes créés)</span>}
+          <div className="muted">{t("votrePlan", langue)}</div>
+          <strong>{plan === "premium" ? t("premium", langue) : t("gratuit", langue)}</strong>
+          {plan === "free" && <span className="muted"> ({ownedGroups.length}/{FREE_MAX_GROUPS} {t("groupesCrees", langue)})</span>}
         </div>
         <button className="secondary" onClick={togglePlan}>
-          {plan === "premium" ? "Repasser en Gratuit" : "Passer Premium"}
+          {plan === "premium" ? t("repasserGratuit", langue) : t("passerPremium", langue)}
         </button>
       </div>
 
       <div className="card">
-        <h2>Nouveau groupe</h2>
+        <h2>{t("nouveauGroupe", langue)}</h2>
         {error && <p className="error">{error}</p>}
         {atLimit ? (
           <p className="error">Limite du plan gratuit atteinte ({FREE_MAX_GROUPS} groupes). Passez Premium pour en créer davantage.</p>
         ) : (
           <form onSubmit={createGroup}>
-            <label>Nom du groupe</label>
+            <label>{t("nomDuGroupe", langue)}</label>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Tontine des amis" />
-            <label>Type</label>
+            <label>{t("type", langue)}</label>
             <select value={type} onChange={(e) => setType(e.target.value)}>
-              {["Association", "Tontine", "Famille", "Colocation", "Équipe / Entreprise", "Projet ponctuel"].map((t) => (
-                <option key={t}>{t}</option>
+              {["Association", "Tontine", "Famille", "Colocation", "Équipe / Entreprise", "Projet ponctuel"].map((tp) => (
+                <option key={tp}>{tp}</option>
               ))}
             </select>
-            <label>Devise de référence</label>
+            <label>{t("deviseReference", langue)}</label>
             <select value={devise} onChange={(e) => setDevise(e.target.value)}>
               {DEVISES.map((d) => <option key={d}>{d}</option>)}
             </select>
-            <button type="submit">Créer le groupe</button>
+            <button type="submit">{t("creerLeGroupe", langue)}</button>
           </form>
         )}
       </div>
 
       <div className="card">
-        <h2>Vos groupes</h2>
+        <h2>{t("vosGroupes", langue)}</h2>
         {loading ? (
-          <p className="muted">Chargement…</p>
+          <p className="muted">{t("chargement", langue)}</p>
         ) : groups.length === 0 ? (
-          <p className="muted">Aucun groupe pour l'instant. Créez-en un ci-dessus.</p>
+          <p className="muted">{t("aucunGroupe", langue)}</p>
         ) : (
           groups.map((g) => (
             <div key={g.id} className="list-item">
               <div style={{ cursor: "pointer" }} onClick={() => onOpenGroup(g.id)}>
-                <strong>{g.name}</strong> {isNew(g) && <span style={{ background: "#B8894B", color: "#241B0B", fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, marginLeft: 6 }}>Nouveau</span>}
-                <div className="muted">{g.type} · {g.devise}{g.owner_id !== userId && " · membre"}</div>
+                <strong>{g.name}</strong> {isNew(g) && <span style={{ background: "#B8894B", color: "#241B0B", fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, marginLeft: 6 }}>{t("nouveau", langue)}</span>}
+                <div className="muted">{g.type} · {g.devise}{g.owner_id !== userId && " · " + t("membre", langue)}</div>
               </div>
             </div>
           ))
@@ -119,4 +120,4 @@ export default function Dashboard({ userId, onOpenGroup }) {
       </div>
     </div>
   );
-    }
+}
