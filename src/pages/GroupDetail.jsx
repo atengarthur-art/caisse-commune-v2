@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { t } from "../i18n";
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
-const FREE_MAX_MEMBERS = 10;
 const TYPE_LABEL = { cotisation: "Cotisation", depense: "Dépense (caisse)", avance: "Avance membre", remboursement: "Remboursement" };
 const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
+const FREE_MAX_MEMBERS = 10;
 
 function buildJournal(cotisations, depenses, members, convert) {
   const entries = [];
@@ -29,7 +30,7 @@ function buildJournal(cotisations, depenses, members, convert) {
   return entries.map((e) => { running += e.montant; return { ...e, solde: running }; });
 }
 
-export default function GroupDetail({ groupId, onBack }) {
+export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
   const [cotisations, setCotisations] = useState([]);
@@ -65,7 +66,7 @@ export default function GroupDetail({ groupId, onBack }) {
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user.id;
     setCurrentUserId(uid);
-const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
+    const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).single(),
       supabase.from("members").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("cotisations").select("*").eq("group_id", groupId).order("date", { ascending: false }),
@@ -76,11 +77,7 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
     ]);
 
     const g = gRes.data, m = mRes.data, c = cRes.data, d = dRes.data, ownerPlan = planRes.data, reqs = reqRes.data, props = propRes.data;
-
-    if (mRes.error) setError("Erreur membres: " + mRes.error.message);
-    else if (cRes.error) setError("Erreur cotisations: " + cRes.error.message);
-    else if (dRes.error) setError("Erreur dépenses: " + dRes.error.message);
-    else if (gRes.error) setError("Erreur groupe: " + gRes.error.message);
+    if (mRes.error) setError(mRes.error.message);
 
     if (!g) { onBack(); return; }
 
@@ -271,7 +268,7 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
     loadAll();
   };
 
-  if (!group || !displayDevise) return <p className="muted">Chargement du groupe…</p>;
+  if (!group || !displayDevise) return <p className="muted">{t("chargement", langue)}</p>;
 
   const totalCotise = sum(cotisations.map((c) => convert(c.montant, c.devise)));
   const totalDepenseCaisse = sum(depenses.filter((d) => !d.source).map((d) => convert(d.montant, d.devise)));
@@ -283,103 +280,103 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
   const iCanVote = pendingRequest && (pendingRequest.eligible_voters || []).includes(currentUserId);
   return (
     <div>
-      <a className="link" onClick={onBack}>&larr; Retour aux groupes</a>
+      <a className="link" onClick={onBack}>{t("retour", langue)}</a>
       <h1 style={{ marginTop: 10 }}>{group.name}</h1>
-      <p className="muted" style={{ marginBottom: 16 }}>{group.type} · devise de référence : {group.devise}</p>
+      <p className="muted" style={{ marginBottom: 16 }}>{group.type} · {t("deviseRef", langue)} {group.devise}</p>
       {error && <p className="error">{error}</p>}
 
       <div className="card">
-        <label>Afficher les montants en</label>
+        <label>{t("afficherMontantsEn", langue)}</label>
         <select value={displayDevise} onChange={(e) => setDisplayDevise(e.target.value)}>
           {DEVISES.map((d) => <option key={d}>{d}</option>)}
         </select>
-        <p className="muted" style={{ marginTop: 6 }}>Ce choix vous est propre, il n'affecte pas ce que voient les autres.</p>
+        <p className="muted" style={{ marginTop: 6 }}>{t("choixPropre", langue)}</p>
       </div>
 
       {pendingRequest && (
         <div className="card" style={{ borderColor: "#B8894B" }}>
-          <h2>{pendingRequest.action_type === "delete" ? "Demande de suppression en cours" : "Demande de transfert en cours"}</h2>
-          <p className="muted" style={{ marginBottom: 10 }}>Votes reçus : {votesCount}/{eligibleCount}. Tous les membres connectés doivent approuver.</p>
-          {iCanVote && !hasVoted && <button onClick={castVote}>Approuver</button>}
-          {hasVoted && <p className="muted">Vous avez déjà approuvé cette demande.</p>}
-          {isOwner && <button className="secondary" style={{ marginLeft: 8 }} onClick={cancelRequest}>Annuler la demande</button>}
+          <h2>{pendingRequest.action_type === "delete" ? t("demandeSuppression", langue) : t("demandeTransfert", langue)}</h2>
+          <p className="muted" style={{ marginBottom: 10 }}>{t("votesRecus", langue)} : {votesCount}/{eligibleCount}. {t("tousDoiventApprouver", langue)}</p>
+          {iCanVote && !hasVoted && <button onClick={castVote}>{t("approuver", langue)}</button>}
+          {hasVoted && <p className="muted">{t("dejaApprouve", langue)}</p>}
+          {isOwner && <button className="secondary" style={{ marginLeft: 8 }} onClick={cancelRequest}>{t("annulerLaDemande", langue)}</button>}
         </div>
       )}
 
       <div className="card row">
-        <div><div className="muted">Total cotisé</div><div className="money pos">{totalCotise.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
-        <div><div className="muted">Solde caisse</div><div className="money pos">{soldeCaisse.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
-        <div><div className="muted">À rembourser</div><div className="money neg">{totalARembourser.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
+        <div><div className="muted">{t("totalCotise", langue)}</div><div className="money pos">{totalCotise.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
+        <div><div className="muted">{t("soldeCaisse", langue)}</div><div className="money pos">{soldeCaisse.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
+        <div><div className="muted">{t("aRembourser", langue)}</div><div className="money neg">{totalARembourser.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div></div>
       </div>
 
       {isOwner && (
         <div className="card">
-          <h2>Inviter des membres</h2>
-          <p className="muted" style={{ marginBottom: 10 }}>Partagez ce lien : la personne crée son compte et rejoint automatiquement ce groupe, en lecture seule.</p>
-          <button className="secondary" onClick={copyLink}>{copied ? "Lien copié !" : "Copier le lien d'invitation"}</button>
+          <h2>{t("inviterMembres", langue)}</h2>
+          <p className="muted" style={{ marginBottom: 10 }}>{t("partagezCeLien", langue)}</p>
+          <button className="secondary" onClick={copyLink}>{copied ? t("lienCopie", langue) : t("copierLeLien", langue)}</button>
         </div>
       )}
 
       {isOwner && !pendingRequest && (
         <div className="card">
-          <h2>Gestion du groupe</h2>
-          <button className="danger" onClick={requestDeletion} style={{ marginBottom: 14 }}>Demander la suppression du groupe</button>
+          <h2>{t("gestionDuGroupe", langue)}</h2>
+          <button className="danger" onClick={requestDeletion} style={{ marginBottom: 14 }}>{t("demanderSuppression", langue)}</button>
           {connectedOthers.length > 0 && (
             <>
-              <label>Transférer la propriété à</label>
+              <label>{t("transfererA", langue)}</label>
               <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)}>
-                <option value="">Choisir un membre connecté</option>
+                <option value="">{t("choisirMembre", langue)}</option>
                 {connectedOthers.map((m) => <option key={m.id} value={m.user_id}>{m.name}</option>)}
               </select>
-              <button className="secondary" onClick={requestTransfer} disabled={!transferTarget}>Demander le transfert</button>
+              <button className="secondary" onClick={requestTransfer} disabled={!transferTarget}>{t("demanderTransfert", langue)}</button>
             </>
           )}
-          <p className="muted" style={{ marginTop: 10 }}>Ces deux actions nécessitent l'accord unanime des membres connectés.</p>
+          <p className="muted" style={{ marginTop: 10 }}>{t("accordUnanime", langue)}</p>
         </div>
       )}
 
       {!isOwner && myActiveMembership && !leaving && (
-        <div className="card"><button className="danger" onClick={() => setLeaving(true)}>Quitter ce groupe</button></div>
+        <div className="card"><button className="danger" onClick={() => setLeaving(true)}>{t("quitterGroupe", langue)}</button></div>
       )}
       {!isOwner && myActiveMembership && leaving && (
         <div className="card">
-          <p style={{ marginBottom: 10 }}>Confirmer que vous quittez ce groupe ? Votre historique reste visible, vous pourrez revenir avec le lien d'invitation.</p>
+          <p style={{ marginBottom: 10 }}>{t("confirmerQuitter", langue)}</p>
           <div className="row" style={{ justifyContent: "flex-start", gap: 10 }}>
-            <button className="danger" onClick={leaveGroup}>Confirmer</button>
-            <button className="secondary" onClick={() => setLeaving(false)}>Annuler</button>
+            <button className="danger" onClick={leaveGroup}>{t("confirmer", langue)}</button>
+            <button className="secondary" onClick={() => setLeaving(false)}>{t("annuler", langue)}</button>
           </div>
         </div>
       )}
 
       {!isOwner && myActiveMembership && (
         <div className="card">
-          <h2>Proposer une opération</h2>
+          <h2>{t("proposerOperation", langue)}</h2>
           <form onSubmit={submitProposal}>
-            <label>Type</label>
+            <label>{t("type", langue)}</label>
             <select value={propType} onChange={(e) => setPropType(e.target.value)}>
-              <option value="cotisation">Cotisation (que j'ai versée)</option>
-              <option value="depense">Avance (dépense payée de ma poche)</option>
+              <option value="cotisation">{t("cotisationVersee", langue)}</option>
+              <option value="depense">{t("avancePayee", langue)}</option>
             </select>
             {propType === "depense" && (
               <>
-                <label>Libellé</label>
+                <label>{t("libelle", langue)}</label>
                 <input value={propLibelle} onChange={(e) => setPropLibelle(e.target.value)} placeholder="ex. Location salle" />
               </>
             )}
-            <label>Montant</label>
+            <label>{t("montant", langue)}</label>
             <input type="number" min="0" step="any" value={propMontant} onChange={(e) => setPropMontant(e.target.value)} />
-            <label>Devise</label>
+            <label>{t("devise", langue)}</label>
             <select value={propDevise} onChange={(e) => setPropDevise(e.target.value)}>
               {DEVISES.map((d) => <option key={d}>{d}</option>)}
             </select>
-            <button type="submit">Envoyer au trésorier</button>
+            <button type="submit">{t("envoyerAuTresorier", langue)}</button>
           </form>
         </div>
       )}
 
       {pendingProposals.length > 0 && (
         <div className="card">
-          <h2>Propositions en attente</h2>
+          <h2>{t("propositionsEnAttente", langue)}</h2>
           {pendingProposals.map((p) => {
             const m = members.find((x) => x.id === p.member_id);
             return (
@@ -390,8 +387,8 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
                 </div>
                 <div className="row" style={{ gap: 10, width: "auto" }}>
                   <span className="money pos">{p.montant} {p.devise}</span>
-                  {isOwner && <button onClick={() => approveProposal(p.id)}>Valider</button>}
-                  {isOwner && <button className="danger" onClick={() => rejectProposal(p.id)}>Rejeter</button>}
+                  {isOwner && <button onClick={() => approveProposal(p.id)}>{t("valider", langue)}</button>}
+                  {isOwner && <button className="danger" onClick={() => rejectProposal(p.id)}>{t("rejeter", langue)}</button>}
                 </div>
               </div>
             );
@@ -400,14 +397,14 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
       )}
 
       <div className="card">
-        <h2>Membres {plan === "free" && <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({activeMembers.length}/{FREE_MAX_MEMBERS})</span>}</h2>
+        <h2>{t("membresTitle", langue)} {plan === "free" && <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({activeMembers.length}/{FREE_MAX_MEMBERS})</span>}</h2>
         {isOwner && (
           atMemberLimit ? (
-            <p className="error">Limite du plan gratuit atteinte ({FREE_MAX_MEMBERS} membres). Passez Premium pour en ajouter davantage.</p>
+            <p className="error">{t("limiteGratuite", langue)} ({FREE_MAX_MEMBERS}). {t("passezPremiumPour", langue)}</p>
           ) : (
             <form onSubmit={addMember} className="row" style={{ alignItems: "flex-end" }}>
-              <div style={{ flex: 1 }}><input placeholder="Nom du membre (sans compte)" value={memberName} onChange={(e) => setMemberName(e.target.value)} /></div>
-              <button type="submit">Ajouter</button>
+              <div style={{ flex: 1 }}><input placeholder={t("nomMembrePlaceholder", langue)} value={memberName} onChange={(e) => setMemberName(e.target.value)} /></div>
+              <button type="submit">{t("ajouter", langue)}</button>
             </form>
           )
         )}
@@ -415,20 +412,20 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
           const stats = memberStats(m.id);
           return (
             <div key={m.id} className="list-item">
-              <span>{m.name}{m.user_id === group.owner_id && <span className="muted" style={{ fontSize: 12 }}> · trésorier</span>}{!m.active && <span className="muted" style={{ fontSize: 12 }}> · inactif</span>}</span>
+              <span>{m.name}{m.user_id === group.owner_id && <span className="muted" style={{ fontSize: 12 }}> · {t("tresorier", langue)}</span>}{!m.active && <span className="muted" style={{ fontSize: 12 }}> · {t("inactif", langue)}</span>}</span>
               <div className="row" style={{ gap: 10, width: "auto" }}>
-                {m.user_id && m.user_id !== group.owner_id && m.active && <span className="muted" style={{ fontSize: 12 }}>compte connecté</span>}
+                {m.user_id && m.user_id !== group.owner_id && m.active && <span className="muted" style={{ fontSize: 12 }}>{t("compteConnecte", langue)}</span>}
                 {isOwner && m.active && m.user_id !== group.owner_id && confirmRemoveId !== m.id && (
-                  <button className="danger" onClick={() => setConfirmRemoveId(m.id)}>Retirer</button>
+                  <button className="danger" onClick={() => setConfirmRemoveId(m.id)}>{t("retirer", langue)}</button>
                 )}
                 {isOwner && confirmRemoveId === m.id && (
                   <>
-                    <span className="muted" style={{ fontSize: 11 }}>{stats.nbCot} cotis., {stats.nbAv} avance(s) resteront dans l'historique</span>
-                    <button className="danger" onClick={() => removeMember(m.id)}>Confirmer</button>
-                    <button className="secondary" onClick={() => setConfirmRemoveId(null)}>Annuler</button>
+                    <span className="muted" style={{ fontSize: 11 }}>{stats.nbCot} cotis., {stats.nbAv} avance(s)</span>
+                    <button className="danger" onClick={() => removeMember(m.id)}>{t("confirmer", langue)}</button>
+                    <button className="secondary" onClick={() => setConfirmRemoveId(null)}>{t("annuler", langue)}</button>
                   </>
                 )}
-                {isOwner && !m.active && <button className="secondary" onClick={() => reactivateMember(m.id)}>Réactiver</button>}
+                {isOwner && !m.active && <button className="secondary" onClick={() => reactivateMember(m.id)}>{t("reactiver", langue)}</button>}
               </div>
             </div>
           );
@@ -436,21 +433,21 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
       </div>
 
       <div className="card">
-        <h2>Cotisations</h2>
+        <h2>{t("cotisationsTitle", langue)}</h2>
         {isOwner && (
-          activeMembers.length === 0 ? <p className="muted">Ajoutez d'abord un membre.</p> : (
+          activeMembers.length === 0 ? <p className="muted">{t("ajoutezDabordMembre", langue)}</p> : (
             <form onSubmit={addCotisation}>
-              <label>Membre</label>
+              <label>{t("membre_", langue)}</label>
               <select value={cotMemberId} onChange={(e) => setCotMemberId(e.target.value)}>
                 {activeMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
-              <label>Montant</label>
+              <label>{t("montant", langue)}</label>
               <input type="number" min="0" step="any" value={cotMontant} onChange={(e) => setCotMontant(e.target.value)} />
-              <label>Devise</label>
+              <label>{t("devise", langue)}</label>
               <select value={cotDevise} onChange={(e) => setCotDevise(e.target.value)}>
                 {DEVISES.map((d) => <option key={d}>{d}</option>)}
               </select>
-              <button type="submit">Enregistrer la cotisation</button>
+              <button type="submit">{t("enregistrerCotisation", langue)}</button>
             </form>
           )
         )}
@@ -467,45 +464,45 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
       </div>
 
       <div className="card">
-        <h2>Dépenses</h2>
+        <h2>{t("depensesTitle", langue)}</h2>
         {isOwner && (
           <>
             <form onSubmit={addDepense}>
-              <label>Libellé</label>
+              <label>{t("libelle", langue)}</label>
               <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder="ex. Location salle" />
-              <label>Montant</label>
+              <label>{t("montant", langue)}</label>
               <input type="number" min="0" step="any" value={depMontant} onChange={(e) => setDepMontant(e.target.value)} />
-              <label>Devise</label>
+              <label>{t("devise", langue)}</label>
               <select value={depDevise} onChange={(e) => setDepDevise(e.target.value)}>
                 {DEVISES.map((d) => <option key={d}>{d}</option>)}
               </select>
-              <label>Payé par</label>
+              <label>{t("payePar", langue)}</label>
               <select value={depSource} onChange={(e) => setDepSource(e.target.value)}>
-                <option value="">La caisse</option>
+                <option value="">{t("laCaisse", langue)}</option>
                 {activeMembers.map((m) => <option key={m.id} value={m.id}>{m.name} (avance)</option>)}
               </select>
-              <button type="submit">Enregistrer la dépense</button>
+              <button type="submit">{t("enregistrerDepense", langue)}</button>
             </form>
-            <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>« Avance » = un membre a payé de sa poche. Le montant lui est dû tant qu'il n'est pas marqué remboursé.</p>
+            <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>{t("avanceNote", langue)}</p>
           </>
         )}
         {depenses.map((d) => {
           const payeur = members.find((m) => m.id === d.source);
           const conv = convert(d.montant, d.devise);
-          const statut = !d.rembourse ? "non remboursé" : d.rembourse_confirme ? "remboursé (confirmé)" : "remboursement signalé — en attente de confirmation";
+          const statut = !d.rembourse ? "" : d.rembourse_confirme ? "remboursé (confirmé)" : "remboursement signalé — en attente de confirmation";
           return (
             <div key={d.id} className="list-item">
               <div>
                 <div>{d.libelle} · {d.date}</div>
-                <div className="muted">{payeur ? `avancé par ${payeur.name} · ${statut}` : "payé par la caisse"}</div>
+                <div className="muted">{payeur ? `${payeur.name}${statut ? " · " + statut : ""}` : t("laCaisse", langue)}</div>
               </div>
               <div className="row" style={{ gap: 10 }}>
                 <span className="money neg">-{d.montant} {d.devise}{d.devise !== displayDevise && <span className="muted" style={{ fontSize: 11 }}> (≈{conv.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise})</span>}</span>
                 {isOwner && payeur && (
-                  <button className="secondary" onClick={() => toggleRembourse(d)}>{d.rembourse ? "Annuler le signalement" : "Signaler comme remboursé"}</button>
+                  <button className="secondary" onClick={() => toggleRembourse(d)}>{d.rembourse ? t("annulerSignalement", langue) : t("signalerRembourse", langue)}</button>
                 )}
                 {!isOwner && myActiveMembership && payeur && payeur.id === myActiveMembership.id && d.rembourse && !d.rembourse_confirme && (
-                  <button onClick={() => confirmReimbursement(d.id)}>Confirmer réception</button>
+                  <button onClick={() => confirmReimbursement(d.id)}>{t("confirmerReception", langue)}</button>
                 )}
               </div>
             </div>
@@ -514,8 +511,8 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
       </div>
 
       <div className="card">
-        <h2>Journal des opérations <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>(en {displayDevise})</span></h2>
-        {journal.length === 0 ? <p className="muted">Aucune opération enregistrée.</p> : journal.map((e) => (
+        <h2>{t("journalTitle", langue)} <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({displayDevise})</span></h2>
+        {journal.length === 0 ? <p className="muted">{t("aucuneOperation", langue)}</p> : journal.map((e) => (
           <div key={e.id} className="list-item">
             <div>
               <div>{e.libelle}</div>
@@ -523,11 +520,11 @@ const [gRes, mRes, cRes, dRes, planRes, reqRes, propRes] = await Promise.all([
             </div>
             <div style={{ textAlign: "right" }}>
               <div className={e.montant > 0 ? "money pos" : e.montant < 0 ? "money neg" : "muted"}>{e.montant > 0 ? "+" : ""}{e.montant.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {displayDevise}</div>
-              <div className="muted" style={{ fontSize: 11 }}>solde: {e.solde.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</div>
+              <div className="muted" style={{ fontSize: 11 }}>{t("solde", langue)}: {e.solde.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</div>
             </div>
           </div>
         ))}
       </div>
     </div>
   );
-            }
+          }
