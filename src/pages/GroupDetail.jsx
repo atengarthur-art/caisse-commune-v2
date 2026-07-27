@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { t } from "../i18n";
+import { t, typeLabel } from "../i18n";
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
@@ -291,7 +291,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         <select value={displayDevise} onChange={(e) => setDisplayDevise(e.target.value)}>
           {DEVISES.map((d) => <option key={d}>{d}</option>)}
         </select>
-        <p className="muted" style={{ marginTop: 6 }}>{t("choixPropre", langue)}</p>
+        <p className="muted" style={{ marginBottom: 16 }}>{typeLabel(group.type, langue)} · {t("deviseRef", langue)} {group.devise}</p>
       </div>
 
       {pendingRequest && (
