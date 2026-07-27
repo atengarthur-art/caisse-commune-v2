@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { t, typeLabel } from "../i18n";
+import * as XLSX from "xlsx";
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
@@ -202,6 +203,35 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const exportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cotisations.map((c) => ({
+      Date: c.date,
+      Membre: members.find((m) => m.id === c.member_id)?.name || "",
+      Montant: c.montant,
+      Devise: c.devise,
+    }))), "Cotisations");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(depenses.map((d) => ({
+      Date: d.date,
+      Libelle: d.libelle,
+      Montant: d.montant,
+      Devise: d.devise,
+      PayePar: members.find((m) => m.id === d.source)?.name || "La caisse",
+      Rembourse: d.rembourse ? (d.rembourse_confirme ? "Confirmé" : "Signalé") : "Non",
+    }))), "Dépenses");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(journal.map((e) => ({
+      Date: e.date,
+      Operation: e.libelle,
+      Montant: e.montant,
+      SoldeCaisse: e.solde,
+    }))), "Journal");
+    XLSX.writeFile(wb, `rapport-${group.name.replace(/\s+/g, "-")}.xlsx`);
+  };
+
+  const exportPDF = () => {
+    window.print();
+  };
+
   const leaveGroup = async () => {
     if (!myActiveMembership) return;
     const { error: err } = await supabase.from("members").update({ active: false, left_at: new Date().toISOString() }).eq("id", myActiveMembership.id);
@@ -333,6 +363,25 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
             </>
           )}
           <p className="muted" style={{ marginTop: 10 }}>{t("accordUnanime", langue)}</p>
+        </div>
+      )}
+
+      {isOwner && (
+        <div className="card">
+          <h2>Rapport &amp; exports</h2>
+          {plan === "premium" ? (
+            <>
+              <p className="muted" style={{ marginBottom: 10 }}>Les montants exportés utilisent la devise d'affichage actuelle ({displayDevise}).</p>
+              <div className="row" style={{ gap: 10, justifyContent: "flex-start" }}>
+                <button onClick={exportExcel}>Exporter en Excel</button>
+                <button className="secondary" onClick={exportPDF}>Exporter en PDF</button>
+              </div>
+            </>
+          ) : (
+            <p className="error">Les exports Excel/PDF sont réservés au plan Premium.</p>
+          )}
+        </div>
+      )}
         </div>
       )}
 
