@@ -135,7 +135,8 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
     nbCot: cotisations.filter((c) => c.member_id === id).length,
     nbAv: depenses.filter((d) => d.source === id).length,
   });
- const addMember = async (e) => {
+  
+  const addMember = async (e) => {
     e.preventDefault();
     if (!memberName.trim() || atMemberLimit) return;
     const { error: err } = await supabase.from("members").insert({ group_id: groupId, name: memberName.trim() });
@@ -303,7 +304,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
 
   const totalCotise = sum(cotisations.map((c) => convert(c.montant, c.devise)));
   const totalDepenseCaisse = sum(depenses.filter((d) => !d.source).map((d) => convert(d.montant, d.devise)));
-  const totalRembourse = sum(depenses.filter((d) => d.source && d.remcardame).map((d) => convert(d.montant, d.devise)));
+  const totalRembourse = sum(depenses.filter((d) => d.source && d.rembourse).map((d) => convert(d.montant, d.devise)));
   const totalARembourser = sum(depenses.filter((d) => d.source && !d.rembourse).map((d) => convert(d.montant, d.devise)));
   const soldeCaisse = totalCotise - totalDepenseCaisse - totalRembourse;
   const journal = buildJournal(cotisations, depenses, members, convert, langue).reverse();
@@ -313,7 +314,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
     <div>
       <a className="link" onClick={onBack}>{t("retour", langue)}</a>
       <h1 style={{ marginTop: 10 }}>{group.name}</h1>
-      <p className="muted" style={{ marginBottom: 16 }}>{group.type} · {t("deviseRef", langue)} {group.devise}</p>
+      <p className="muted" style={{ marginBottom: 16 }}>{typeLabel(group.type, langue)} · {t("deviseRef", langue)} {group.devise}</p>
       {error && <p className="error">{error}</p>}
 
       <div className="card">
@@ -321,7 +322,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         <select value={displayDevise} onChange={(e) => setDisplayDevise(e.target.value)}>
           {DEVISES.map((d) => <option key={d}>{d}</option>)}
         </select>
-        <p className="muted" style={{ marginBottom: 16 }}>{typeLabel(group.type, langue)} · {t("deviseRef", langue)} {group.devise}</p>
+        <p className="muted" style={{ marginTop: 6 }}>{t("choixPropre", langue)}</p>
       </div>
 
       {pendingRequest && (
@@ -380,8 +381,6 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
           ) : (
             <p className="error">Les exports Excel/PDF sont réservés au plan Premium.</p>
           )}
-        </div>
-      )}
         </div>
       )}
 
@@ -482,7 +481,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         })}
       </div>
 
-      <div className="card">  
+      <div className="card">
         <h2>{t("cotisationsTitle", langue)}</h2>
         {isOwner && (
           activeMembers.length === 0 ? <p className="muted">{t("ajoutezDabordMembre", langue)}</p> : (
