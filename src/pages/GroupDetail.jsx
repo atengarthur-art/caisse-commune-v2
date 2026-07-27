@@ -303,7 +303,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
 
   const totalCotise = sum(cotisations.map((c) => convert(c.montant, c.devise)));
   const totalDepenseCaisse = sum(depenses.filter((d) => !d.source).map((d) => convert(d.montant, d.devise)));
-  const totalRembourse = sum(depenses.filter((d) => d.source && d.rembourse).map((d) => convert(d.montant, d.devise)));
+  const totalRembourse = sum(depenses.filter((d) => d.source && d.remcardame).map((d) => convert(d.montant, d.devise)));
   const totalARembourser = sum(depenses.filter((d) => d.source && !d.rembourse).map((d) => convert(d.montant, d.devise)));
   const soldeCaisse = totalCotise - totalDepenseCaisse - totalRembourse;
   const journal = buildJournal(cotisations, depenses, members, convert, langue).reverse();
@@ -482,7 +482,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         })}
       </div>
 
-      <div className="card">
+      <div className="card">  
         <h2>{t("cotisationsTitle", langue)}</h2>
         {isOwner && (
           activeMembers.length === 0 ? <p className="muted">{t("ajoutezDabordMembre", langue)}</p> : (
