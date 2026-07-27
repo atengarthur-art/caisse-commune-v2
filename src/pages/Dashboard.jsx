@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { t } from "../i18n";
+import { t, typeLabel } from "../i18n";
 
 const FREE_MAX_GROUPS = 3;
 const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
@@ -89,8 +89,8 @@ export default function Dashboard({ userId, onOpenGroup, langue }) {
             <label>{t("type", langue)}</label>
             <select value={type} onChange={(e) => setType(e.target.value)}>
               {["Association", "Tontine", "Famille", "Colocation", "Équipe / Entreprise", "Projet ponctuel"].map((tp) => (
-                <option key={tp}>{tp}</option>
-              ))}
+              <option key={tp} value={tp}>{typeLabel(tp, langue)}</option>
+            ))}
             </select>
             <label>{t("deviseReference", langue)}</label>
             <select value={devise} onChange={(e) => setDevise(e.target.value)}>
@@ -112,7 +112,7 @@ export default function Dashboard({ userId, onOpenGroup, langue }) {
             <div key={g.id} className="list-item">
               <div style={{ cursor: "pointer" }} onClick={() => onOpenGroup(g.id)}>
                 <strong>{g.name}</strong> {isNew(g) && <span style={{ background: "#B8894B", color: "#241B0B", fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, marginLeft: 6 }}>{t("nouveau", langue)}</span>}
-                <div className="muted">{g.type} · {g.devise}{g.owner_id !== userId && " · " + t("membre", langue)}</div>
+                <div className="muted">{typeLabel(g.type, langue)} · {g.devise}{g.owner_id !== userId && " · " + t("membre", langue)}</div>
               </div>
             </div>
           ))
