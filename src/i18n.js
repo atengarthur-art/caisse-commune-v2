@@ -195,3 +195,17 @@ export function t(key, lang) {
   const dict = STRINGS[lang] || STRINGS.fr;
   return dict[key] ?? STRINGS.fr[key] ?? key;
     }
+const TYPE_LABELS = {
+  Association: { fr: "Association", en: "Association" },
+  Tontine: { fr: "Tontine", en: "Savings group" },
+  Famille: { fr: "Famille", en: "Family" },
+  Colocation: { fr: "Colocation", en: "Shared housing" },
+  "Équipe / Entreprise": { fr: "Équipe / Entreprise", en: "Team / Company" },
+  "Projet ponctuel": { fr: "Projet ponctuel", en: "One-off project" },
+};
+
+export function typeLabel(value, lang) {
+  const entry = TYPE_LABELS[value];
+  if (!entry) return value;
+  return entry[lang] || entry.fr;
+}
