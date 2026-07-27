@@ -8,20 +8,21 @@ const TYPE_LABEL = { fr: { cotisation: "Cotisation", depense: "Dépense (caisse)
 const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
 const FREE_MAX_MEMBERS = 10;
 
-function buildJournal(cotisations, depenses, members, convert) {
+function buildJournal(cotisations, depenses, members, convert, langue) {
+  const L = TYPE_LABEL[langue] || TYPE_LABEL.fr;
   const entries = [];
   cotisations.forEach((c) => {
     const m = members.find((x) => x.id === c.member_id);
-    entries.push({ id: "c-" + c.id, date: c.date, type: "cotisation", libelle: "Cotisation — " + (m?.name || "—"), montant: convert(c.montant, c.devise) });
+    entries.push({ id: "c-" + c.id, date: c.date, type: "cotisation", libelle: L.cotisation + " — " + (m?.name || "—"), montant: convert(c.montant, c.devise) });
   });
   depenses.forEach((d) => {
     if (!d.source) {
       entries.push({ id: "d-" + d.id, date: d.date, type: "depense", libelle: d.libelle, montant: -convert(d.montant, d.devise) });
     } else {
       const m = members.find((x) => x.id === d.source);
-      entries.push({ id: "a-" + d.id, date: d.date, type: "avance", libelle: "Avance — " + d.libelle + " (" + (m?.name || "—") + ")", montant: 0 });
+      entries.push({ id: "a-" + d.id, date: d.date, type: "avance", libelle: L.avance + " — " + d.libelle + " (" + (m?.name || "—") + ")", montant: 0 });
       if (d.rembourse) {
-        entries.push({ id: "r-" + d.id, date: d.remboursement_date || d.date, type: "remboursement", libelle: "Remboursement — " + d.libelle + " (" + (m?.name || "—") + ")", montant: -convert(d.montant, d.devise) });
+        entries.push({ id: "r-" + d.id, date: d.remboursement_date || d.date, type: "remboursement", libelle: L.remboursement + " — " + d.libelle + " (" + (m?.name || "—") + ")", montant: -convert(d.montant, d.devise) });
       }
     }
   });
@@ -275,7 +276,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
   const totalRembourse = sum(depenses.filter((d) => d.source && d.rembourse).map((d) => convert(d.montant, d.devise)));
   const totalARembourser = sum(depenses.filter((d) => d.source && !d.rembourse).map((d) => convert(d.montant, d.devise)));
   const soldeCaisse = totalCotise - totalDepenseCaisse - totalRembourse;
-  const journal = buildJournal(cotisations, depenses, members, convert).reverse();
+  const journal = buildJournal(cotisations, depenses, members, convert, langue).reverse();
   const eligibleCount = pendingRequest ? (pendingRequest.eligible_voters || []).length : 0;
   const iCanVote = pendingRequest && (pendingRequest.eligible_voters || []).includes(currentUserId);
   return (
@@ -489,7 +490,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         {depenses.map((d) => {
           const payeur = members.find((m) => m.id === d.source);
           const conv = convert(d.montant, d.devise);
-          const statut = !d.rembourse ? "" : d.rembourse_confirme ? "remboursé (confirmé)" : "remboursement signalé — en attente de confirmation";
+          const statut = !d.rembourse ? "" : d.rembourse_confirme ? t("rembourseConfirmeText", langue) : t("rembourseSignaleText", langue);
           return (
             <div key={d.id} className="list-item">
               <div>
