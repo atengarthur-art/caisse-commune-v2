@@ -367,7 +367,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         </div>
       )}
 
-      {isOwner && (
+      {myMembership && (
         <div className="card">
           <h2>Rapport &amp; exports</h2>
           {plan === "premium" ? (
