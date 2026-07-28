@@ -98,6 +98,8 @@ deviseExportNote: "Les montants exportés utilisent la devise d'affichage actuel
 exporterExcel: "Exporter en Excel",
 exporterPDF: "Exporter en PDF",
 exportsReserves: "Les exports Excel/PDF sont réservés au plan Premium.",
+    exGroupName: "ex. Tontine des amis",
+exLibelleDepense: "ex. Location salle",
   },
   en: {
     chargement: "Loading…",
@@ -198,6 +200,8 @@ deviseExportNote: "Exported amounts use the current display currency",
 exporterExcel: "Export to Excel",
 exporterPDF: "Export to PDF",
 exportsReserves: "Excel/PDF exports are reserved for the Premium plan.",
+    exGroupName: "e.g. Book club",
+exLibelleDepense: "e.g. Venue rental",
   },
 };
 
