@@ -85,7 +85,7 @@ export default function Dashboard({ userId, onOpenGroup, langue }) {
         ) : (
           <form onSubmit={createGroup}>
             <label>{t("nomDuGroupe", langue)}</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Tontine des amis" />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("exGroupName", langue)} />
             <label>{t("type", langue)}</label>
             <select value={type} onChange={(e) => setType(e.target.value)}>
               {["Association", "Tontine", "Famille", "Colocation", "Équipe / Entreprise", "Projet ponctuel"].map((tp) => (
