@@ -409,7 +409,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
             {propType === "depense" && (
               <>
                 <label>{t("libelle", langue)}</label>
-                <input value={propLibelle} onChange={(e) => setPropLibelle(e.target.value)} placeholder="ex. Location salle" />
+                <input value={propLibelle} onChange={(e) => setPropLibelle(e.target.value)} placeholder={t("exLibelleDepense", langue)} />
               </>
             )}
             <label>{t("montant", langue)}</label>
@@ -518,7 +518,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
           <>
             <form onSubmit={addDepense}>
               <label>{t("libelle", langue)}</label>
-              <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder="ex. Location salle" />
+              <input value={depLibelle} onChange={(e) => setDepLibelle(e.target.value)} placeholder={t("exLibelleDepense", langue)} />
               <label>{t("montant", langue)}</label>
               <input type="number" min="0" step="any" value={depMontant} onChange={(e) => setDepMontant(e.target.value)} />
               <label>{t("devise", langue)}</label>
