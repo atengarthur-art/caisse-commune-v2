@@ -367,19 +367,19 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         </div>
       )}
 
-      {myMembership && (
+{myMembership && (
         <div className="card">
-          <h2>Rapport &amp; exports</h2>
+          <h2>{t("rapportExports", langue)}</h2>
           {plan === "premium" ? (
             <>
-              <p className="muted" style={{ marginBottom: 10 }}>Les montants exportés utilisent la devise d'affichage actuelle ({displayDevise}).</p>
+              <p className="muted" style={{ marginBottom: 10 }}>{t("deviseExportNote", langue)} ({displayDevise}).</p>
               <div className="row" style={{ gap: 10, justifyContent: "flex-start" }}>
-                <button onClick={exportExcel}>Exporter en Excel</button>
-                <button className="secondary" onClick={exportPDF}>Exporter en PDF</button>
+                <button onClick={exportExcel}>{t("exporterExcel", langue)}</button>
+                <button className="secondary" onClick={exportPDF}>{t("exporterPDF", langue)}</button>
               </div>
             </>
           ) : (
-            <p className="error">Les exports Excel/PDF sont réservés au plan Premium.</p>
+            <p className="error">{t("exportsReserves", langue)}</p>
           )}
         </div>
       )}
