@@ -93,6 +93,11 @@ const STRINGS = {
     solde: "solde",
     limiteGratuite: "Limite du plan gratuit atteinte",
     passezPremiumPour: "Passez Premium pour en ajouter davantage.",
+    rapportExports: "Rapport & exports",
+deviseExportNote: "Les montants exportés utilisent la devise d'affichage actuelle",
+exporterExcel: "Exporter en Excel",
+exporterPDF: "Exporter en PDF",
+exportsReserves: "Les exports Excel/PDF sont réservés au plan Premium.",
   },
   en: {
     chargement: "Loading…",
@@ -188,6 +193,11 @@ const STRINGS = {
     solde: "balance",
     limiteGratuite: "Free plan limit reached",
     passezPremiumPour: "Upgrade to Premium to add more.",
+    rapportExports: "Report & exports",
+deviseExportNote: "Exported amounts use the current display currency",
+exporterExcel: "Export to Excel",
+exporterPDF: "Export to PDF",
+exportsReserves: "Excel/PDF exports are reserved for the Premium plan.",
   },
 };
 
