@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { t, typeLabel } from "../i18n";
 import * as XLSX from "xlsx";
+const FREE_MAX_DOCUMENTS = 5;
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
@@ -63,6 +64,10 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
   const [displayDevise, setDisplayDevise] = useState(null);
   const [rates, setRates] = useState({});
   const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [docFile, setDocFile] = useState(null);
+  const [docCategorie, setDocCategorie] = useState("");
+  const [docUploading, setDocUploading] = useState(false);
 
   const loadAll = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -100,7 +105,9 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
     } else {
       setVotesCount(0); setHasVoted(false);
     }
-
+    
+const{ data: docs } = await supabase.from("documents").select("*").eq("group_id", groupId).order("created_at", { ascending: false });
+    setDocuments(docs || []);
     await supabase.from("group_visits").upsert(
       { group_id: groupId, user_id: uid, last_seen: new Date().toISOString() },
       { onConflict: "group_id,user_id" }
@@ -229,6 +236,34 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
     XLSX.writeFile(wb, `rapport-${group.name.replace(/\s+/g, "-")}.xlsx`);
   };
 
+  const uploadDocument = async (e) => {
+    e.preventDefault();
+    if (!docFile) return;
+    setDocUploading(true);
+    const path = `${groupId}/${Date.now()}-${docFile.name}`;
+    const { error: upErr } = await supabase.storage.from("documents").upload(path, docFile);
+    if (upErr) { setError(upErr.message); setDocUploading(false); return; }
+    const { data: userData } = await supabase.auth.getUser();
+    const { error: err } = await supabase.from("documents").insert({
+      group_id: groupId, uploaded_by: userData.user.id, file_path: path, file_name: docFile.name, categorie: docCategorie.trim() || null, taille_octets: docFile.size,
+    });
+    if (err) setError(err.message);
+    setDocFile(null); setDocCategorie("");
+    setDocUploading(false);
+    loadAll();
+  };
+
+  const downloadDocument = async (doc) => {
+    const { data, error: err } = await supabase.storage.from("documents").createSignedUrl(doc.file_path, 60);
+    if (err) { setError(err.message); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const deleteDocument = async (doc) => {
+    await supabase.storage.from("documents").remove([doc.file_path]);
+    await supabase.from("documents").delete().eq("id", doc.id);
+    loadAll();
+  };
   const exportPDF = () => {
     window.print();
   };
@@ -367,6 +402,34 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
         </div>
       )}
 
+      {myMembership && (
+        <div className="card">
+          <h2>{t("coffreFort", langue)}</h2>
+          {documents.length >= FREE_MAX_DOCUMENTS && plan === "free" ? (
+            <p className="error">{t("limiteDocuments", langue)} ({FREE_MAX_DOCUMENTS}).</p>
+          ) : (
+            <form onSubmit={uploadDocument}>
+              <label>{t("choisirFichier", langue)}</label>
+              <input type="file" onChange={(e) => setDocFile(e.target.files[0])} />
+              <label>{t("categorieOptionnelle", langue)}</label>
+              <input value={docCategorie} onChange={(e) => setDocCategorie(e.target.value)} placeholder={t("exCategorie", langue)} />
+              <button type="submit" disabled={!docFile || docUploading}>{docUploading ? t("veuillezPatienter", langue) : t("deposer", langue)}</button>
+            </form>
+          )}
+          {documents.length === 0 ? <p className="muted">{t("aucunDocument", langue)}</p> : documents.map((doc) => (
+            <div key={doc.id} className="list-item">
+              <div>
+                <div>{doc.file_name}</div>
+                <div className="muted">{doc.categorie || "—"} · {new Date(doc.created_at).toLocaleDateString("fr-FR")}</div>
+              </div>
+              <div className="row" style={{ gap: 10, width: "auto" }}>
+                <button className="secondary" onClick={() => downloadDocument(doc)}>{t("telecharger", langue)}</button>
+                <button className="danger" onClick={() => deleteDocument(doc)}>{t("supprimer", langue)}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 {myMembership && (
         <div className="card">
           <h2>{t("rapportExports", langue)}</h2>
