@@ -176,7 +176,7 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
     else if (plan === "free") setShowAd(true);
     setCotMontant("");
     loadAll();
-  };
+  }; 
 
   const addDepense = async (e) => {
     e.preventDefault();
@@ -189,7 +189,7 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
     else if (plan === "free") setShowAd(true);
     setDepLibelle(""); setDepMontant(""); setDepSource("");
     loadAll();
-  };
+  };   
 
   const toggleRembourse = async (d) => {
     const newVal = !d.rembourse;
