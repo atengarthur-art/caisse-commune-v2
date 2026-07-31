@@ -172,7 +172,7 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
     const montant = parseFloat(cotMontant);
     if (!cotMemberId || !montant || montant <= 0) return;
     const { error: err } = await supabase.from("cotisations").insert({ group_id: groupId, member_id: cotMemberId, montant, devise: cotDevise });
-if (err) setError(err.message);
+    if (err) setError(err.message);
     else if (plan === "free") setShowAd(true);
     setCotMontant("");
     loadAll();
