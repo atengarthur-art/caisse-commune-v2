@@ -410,7 +410,11 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
           ) : (
             <form onSubmit={uploadDocument}>
               <label>{t("choisirFichier", langue)}</label>
-              <input type="file" onChange={(e) => setDocFile(e.target.files[0])} />
+              <input type="file" id="fileInput" style={{ display: "none" }} onChange={(e) => setDocFile(e.target.files[0])} />
+              <button type="button" className="secondary" onClick={() => document.getElementById("fileInput").click()}>
+                {t("choisirUnFichier", langue)}
+              </button>
+              <p className="muted" style={{ marginTop: 6, marginBottom: 12 }}>{docFile ? docFile.name : t("aucunFichierChoisi", langue)}</p>
               <label>{t("categorieOptionnelle", langue)}</label>
               <input value={docCategorie} onChange={(e) => setDocCategorie(e.target.value)} placeholder={t("exCategorie", langue)} />
               <button type="submit" disabled={!docFile || docUploading}>{docUploading ? t("veuillezPatienter", langue) : t("deposer", langue)}</button>
@@ -420,7 +424,7 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
             <div key={doc.id} className="list-item">
               <div>
                 <div>{doc.file_name}</div>
-                <div className="muted">{doc.categorie || "—"} · {new Date(doc.created_at).toLocaleDateString("fr-FR")}</div>
+                <div className="muted">{doc.categorie || "—"} · {new Date(doc.created_at).toLocaleDateString("fr-FR")} · {t("deposePar", langue)} {members.find((m) => m.user_id === doc.uploaded_by)?.name || "—"}</div>
               </div>
               <div className="row" style={{ gap: 10, width: "auto" }}>
                 <button className="secondary" onClick={() => downloadDocument(doc)}>{t("telecharger", langue)}</button>
