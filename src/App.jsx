@@ -4,13 +4,15 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import GroupDetail from "./pages/GroupDetail.jsx";
 import Join from "./pages/Join.jsx";
+import Admin from "./pages/Admin.jsx";
 import { t } from "./i18n";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [langue, setLangueState] = useState("fr");
-
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const joinCode = window.location.pathname.startsWith("/rejoindre/")
     ? window.location.pathname.split("/rejoindre/")[1]
     : null;
@@ -23,8 +25,11 @@ export default function App() {
 
   useEffect(() => {
     if (!session) return;
-    supabase.from("profiles").select("langue").eq("id", session.user.id).single()
-      .then(({ data }) => { if (data && data.langue) setLangueState(data.langue); });
+    supabase.from("profiles").select("langue, is_super_admin").eq("id", session.user.id).single()
+      .then(({ data }) => {
+        if (data && data.langue) setLangueState(data.langue);
+        if (data) setIsSuperAdmin(data.is_super_admin);
+      });
   }, [session]);
 
   const setLangue = async (l) => {
@@ -52,6 +57,10 @@ export default function App() {
     );
   }
 
+  if (showAdmin) {
+    return <Admin onBack={() => setShowAdmin(false)} />;
+  }
+
   return (
     <div className="app-shell">
       <div className="row" style={{ marginBottom: 20 }}>
@@ -64,6 +73,7 @@ export default function App() {
             <option value="fr">Français</option>
             <option value="en">English</option>
           </select>
+          {isSuperAdmin && <button className="secondary" onClick={() => setShowAdmin(true)}>Admin</button>}
           <button className="secondary" onClick={() => supabase.auth.signOut()}>{t("seDeconnecter", langue)}</button>
         </div>
       </div>
