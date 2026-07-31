@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { t, typeLabel } from "../i18n";
+import { AdBanner } from "../ads";
 
 const FREE_MAX_GROUPS = 3;
 const DEVISES = ["EUR", "USD", "XOF", "XAF", "GBP", "CAD", "MAD", "NGN", "GHS", "CHF"];
@@ -76,6 +77,8 @@ export default function Dashboard({ userId, onOpenGroup, langue }) {
           {plan === "premium" ? t("repasserGratuit", langue) : t("passerPremium", langue)}
         </button>
       </div>
+
+      {plan === "free" && <AdBanner langue={langue} compact />}
 
       <div className="card">
         <h2>{t("nouveauGroupe", langue)}</h2>
