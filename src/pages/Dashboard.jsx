@@ -78,7 +78,15 @@ export default function Dashboard({ userId, onOpenGroup, langue }) {
         </button>
       </div>
 
-      {plan === "free" && <AdBanner langue={langue} compact />}
+      <div className="card">
+        <h2>{langue === "en" ? "News" : "Actualités"}</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          {langue === "en"
+            ? "Tip: mark an advance as reimbursed once the fund has paid the member back, to keep your balance accurate."
+            : "Astuce : marquez une avance comme remboursée dès que la caisse a rendu l'argent au membre, pour garder un solde toujours exact."}
+        </p>
+        {plan === "free" && <AdBanner langue={langue} compact />}
+      </div>
 
       <div className="card">
         <h2>{t("nouveauGroupe", langue)}</h2>
