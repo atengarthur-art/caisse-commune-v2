@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { t, typeLabel } from "../i18n";
 import * as XLSX from "xlsx";
+import { AdBanner } from "../ads";
 const FREE_MAX_DOCUMENTS = 5;
 
 function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
@@ -68,6 +69,7 @@ export default function GroupDetail({ groupId, onBack, langue = "fr" }) {
   const [docFile, setDocFile] = useState(null);
   const [docCategorie, setDocCategorie] = useState("");
   const [docUploading, setDocUploading] = useState(false);
+  const [showAd, setShowAd] = useState(false);
 
   const loadAll = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -170,7 +172,8 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
     const montant = parseFloat(cotMontant);
     if (!cotMemberId || !montant || montant <= 0) return;
     const { error: err } = await supabase.from("cotisations").insert({ group_id: groupId, member_id: cotMemberId, montant, devise: cotDevise });
-    if (err) setError(err.message);
+if (err) setError(err.message);
+    else if (plan === "free") setShowAd(true);
     setCotMontant("");
     loadAll();
   };
@@ -183,6 +186,7 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
       group_id: groupId, libelle: depLibelle.trim(), montant, devise: depDevise, source: depSource || null, rembourse: false,
     });
     if (err) setError(err.message);
+    else if (plan === "free") setShowAd(true);
     setDepLibelle(""); setDepMontant(""); setDepSource("");
     loadAll();
   };
@@ -626,6 +630,7 @@ const{ data: docs } = await supabase.from("documents").select("*").eq("group_id"
         })}
       </div>
 
+      {showAd && <AdBanner langue={langue} dismissible onDismiss={() => setShowAd(false)} />}
       <div className="card">
         <h2>{t("journalTitle", langue)} <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({displayDevise})</span></h2>
         {journal.length === 0 ? <p className="muted">{t("aucuneOperation", langue)}</p> : journal.map((e) => (
